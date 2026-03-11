@@ -1703,16 +1703,19 @@ function startGameFromLobby() {
         return;
     }
     
-    // Notificar al servidor
+    // Desabilitar botón mientras se procesa
+    const startBtn = document.getElementById('lobby-start-btn');
+    startBtn.disabled = true;
+    startBtn.textContent = '⏳ Iniciando...';
+    
+    // Notificar al servidor - ESPERAR respuesta
     if (socket && isMultiplayer) {
         socket.emit('start-game', {
             roomCode: currentRoom
         });
+        // NO iniciar directamente - esperar evento game-started del servidor
     }
-    
-    // Iniciar juego
-    document.getElementById('lobby-screen').classList.add('hidden');
-    initGame();
+}
 }
 
 // Abandonar lobby
