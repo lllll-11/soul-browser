@@ -1,5 +1,5 @@
 // Configuración del servidor según el entorno
-let SERVER_URL = 'http://localhost:3000'; // Default para desarrollo local
+let SERVER_URL = 'https://soul-browser-backend.onrender.com'; // Default para desarrollo local
 
 // Si estamos en producción (Netlify), usar la URL de Render
 if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
