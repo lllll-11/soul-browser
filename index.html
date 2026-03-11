@@ -1,0 +1,1636 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soul Browser - Infinite Roguelike</title>
+    <style>
+        :root {
+            --bg-color: #020617;
+            --panel-bg: rgba(15, 23, 42, 0.85);
+            --accent: #3b82f6;
+            --health: #ef4444;
+            --shield: #0ea5e9;
+            --energy: #10b981;
+            --gold: #fbbf24;
+            --text: #f8fafc;
+        }
+
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background-color: var(--bg-color); color: var(--text);
+            font-family: 'Courier New', Courier, monospace;
+            overflow: hidden; user-select: none;
+        }
+
+        #game-container { position: relative; width: 100vw; height: 100vh; }
+        canvas { display: block; image-rendering: pixelated; }
+
+        /* HUD Principal */
+        #hud {
+            position: absolute; top: 20px; left: 20px;
+            pointer-events: none; z-index: 10;
+            background: var(--panel-bg); padding: 15px;
+            border: 2px solid #334155; border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+        }
+
+        .bar-wrapper { margin-bottom: 10px; }
+        .bar-container {
+            width: 250px; height: 22px; background: #1e293b;
+            border: 2px solid #0f172a; border-radius: 4px;
+            position: relative; overflow: hidden;
+        }
+        .bar-fill { height: 100%; transition: width 0.1s linear; }
+        #shield-bar { background-color: var(--shield); box-shadow: inset 0 -3px rgba(0,0,0,0.3); }
+        #health-bar { background-color: var(--health); box-shadow: inset 0 -3px rgba(0,0,0,0.3); }
+        #energy-bar { background-color: var(--energy); box-shadow: inset 0 -3px rgba(0,0,0,0.3); }
+        
+        .stat-label {
+            position: absolute; width: 100%; text-align: center;
+            font-size: 13px; font-weight: bold; line-height: 22px;
+            color: white; text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+        }
+
+        .hud-stats { display: flex; justify-content: space-between; margin-top: 15px; font-size: 20px; font-weight: bold; }
+        .gold-text { color: var(--gold); text-shadow: 1px 1px #000; }
+        .level-text { color: #cbd5e1; text-shadow: 1px 1px #000; }
+
+        /* Arma y Minimapa */
+        #weapon-ui {
+            position: absolute; bottom: 30px; right: 30px;
+            background: var(--panel-bg); padding: 15px 25px;
+            border: 3px solid var(--accent); border-radius: 12px;
+            text-align: right; box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
+            pointer-events: none; z-index: 10;
+        }
+        #weapon-name { color: var(--accent); font-size: 22px; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; }
+        #ammo-count { font-size: 28px; font-weight: bold; color: white; }
+
+        #minimap-wrapper {
+            position: absolute; top: 20px; right: 20px;
+            border: 3px solid #475569; background: rgba(0,0,0,0.8);
+            border-radius: 8px; overflow: hidden; z-index: 10;
+        }
+
+        /* Pantallas de interfaz */
+        .overlay {
+            position: absolute; inset: 0; background: rgba(2, 6, 23, 0.95);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 100; backdrop-filter: blur(5px);
+        }
+        .hidden { display: none !important; }
+
+        .title {
+            font-size: 80px; color: var(--accent); margin-bottom: 20px;
+            text-shadow: 0 0 30px rgba(59, 130, 246, 0.8), 0 5px 0 #1e3a8a;
+            font-weight: 900; letter-spacing: 2px; text-align: center;
+        }
+
+        .subtitle { font-size: 24px; color: var(--health); margin-bottom: 50px; font-weight: bold; letter-spacing: 5px; }
+
+        .btn {
+            background: var(--accent); color: white; border: none;
+            padding: 20px 60px; font-size: 28px; font-weight: bold;
+            cursor: pointer; margin: 15px; border-radius: 8px;
+            transition: all 0.2s; box-shadow: 0 6px 0 #1d4ed8;
+            text-transform: uppercase;
+        }
+        .btn:hover { transform: translateY(-2px); filter: brightness(1.2); box-shadow: 0 8px 0 #1d4ed8; }
+        .btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #1d4ed8; }
+        .btn-red { background: var(--health); box-shadow: 0 6px 0 #b91c1c; }
+        .btn-red:hover { box-shadow: 0 8px 0 #b91c1c; }
+        .btn-red:active { box-shadow: 0 2px 0 #b91c1c; }
+
+        /* Tienda */
+        #shop-container {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; max-width: 900px; margin-bottom: 30px;
+        }
+        .shop-item {
+            background: #1e293b; border: 2px solid #475569; padding: 20px;
+            border-radius: 10px; text-align: center; cursor: pointer; transition: 0.2s;
+        }
+        .shop-item:hover { border-color: var(--gold); transform: scale(1.05); }
+        .shop-item h3 { color: var(--accent); margin-top: 0; }
+        .shop-item p { font-size: 14px; color: #94a3b8; height: 40px; }
+        .shop-price { color: var(--gold); font-weight: bold; font-size: 20px; margin-top: 15px; }
+        .shop-btn { background: var(--gold); color: #000; border: none; padding: 10px 20px; font-weight: bold; border-radius: 5px; cursor: pointer; width: 100%; margin-top: 10px;}
+        
+        .controls-info { margin-top: 40px; text-align: center; color: #94a3b8; font-size: 18px; line-height: 1.8; background: rgba(0,0,0,0.5); padding: 20px; border-radius: 10px;}
+        .key { background: #334155; padding: 4px 10px; border-radius: 4px; color: white; border-bottom: 2px solid #0f172a; }
+
+        #interaction-prompt {
+            position: absolute; top: 60%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.8); color: white; padding: 10px 20px;
+            border-radius: 20px; border: 2px solid white; font-weight: bold; font-size: 18px;
+            pointer-events: none; z-index: 50;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+    <canvas id="lightingCanvas" style="position: absolute; top: 0; left: 0; pointer-events: none; mix-blend-mode: multiply;"></canvas>
+
+    <div id="hud">
+        <div class="bar-wrapper">
+            <div class="bar-container">
+                <div id="shield-bar" class="bar-fill" style="width: 100%"></div>
+                <div class="stat-label" id="shield-text">ESCUDO 50/50</div>
+            </div>
+        </div>
+        <div class="bar-wrapper">
+            <div class="bar-container">
+                <div id="health-bar" class="bar-fill" style="width: 100%"></div>
+                <div class="stat-label" id="health-text">VIDA 100/100</div>
+            </div>
+        </div>
+        <div class="bar-wrapper">
+            <div class="bar-container">
+                <div id="energy-bar" class="bar-fill" style="width: 100%"></div>
+                <div class="stat-label" id="energy-text">ENERGÍA 200/200</div>
+            </div>
+        </div>
+        <div class="hud-stats">
+            <span class="gold-text">🪙 <span id="coin-count">0</span></span>
+            <span class="level-text">NIVEL <span id="level-display">1</span></span>
+        </div>
+    </div>
+
+    <div id="minimap-wrapper">
+        <canvas id="minimapCanvas" width="200" height="200"></canvas>
+    </div>
+
+    <div id="weapon-ui">
+        <div id="weapon-name">Pistola</div>
+        <div id="ammo-count">∞</div>
+    </div>
+
+    <div id="interaction-prompt" class="hidden">Presiona [E] para interactuar</div>
+
+    <!-- MAIN MENU -->
+    <div id="menu-screen" class="overlay">
+        <h1 class="title">SOUL BROWSER</h1>
+        <div class="subtitle">INFINITE ROGUELIKE</div>
+        <button class="btn" onclick="initGame()">JUEGO SOLO</button>
+        <button class="btn" style="background: #10b981; box-shadow: 0 6px 0 #059669;" onclick="showMultiplayerJoin()">MULTIJUGADOR EN LÍNEA</button>
+        <div class="controls-info">
+            <span class="key">W</span> <span class="key">A</span> <span class="key">S</span> <span class="key">D</span> Moverse &nbsp;&nbsp;|&nbsp;&nbsp; 
+            <span class="key">CLICK IZQ</span> Disparar &nbsp;&nbsp;|&nbsp;&nbsp;
+            <span class="key">CLICK DER</span> / <span class="key">ESPACIO</span> Dash<br><br>
+            <span class="key">Q</span> Cambiar Arma &nbsp;&nbsp;|&nbsp;&nbsp; <span class="key">E</span> Interactuar
+        </div>
+    </div>
+
+    <!-- SHOP MENU -->
+    <div id="shop-screen" class="overlay hidden">
+        <h1 class="title" style="font-size: 50px; color: var(--gold);">NIVEL COMPLETADO</h1>
+        <div style="color: white; font-size: 24px; margin-bottom: 30px;">Tus Monedas: <span style="color: var(--gold); font-weight: bold;">🪙 <span id="shop-coins">0</span></span></div>
+        <div id="shop-container">
+            <!-- Items generados por JS -->
+        </div>
+        <button class="btn" onclick="nextLevel()">Siguiente Nivel ➔</button>
+    </div>
+
+    <!-- GAME OVER -->
+    <div id="game-over-screen" class="overlay hidden">
+        <h1 class="title" style="color: var(--health);">HAS MUERTO</h1>
+        <div style="font-size: 28px; margin-bottom: 10px;">Llegaste al Nivel: <span id="final-level" style="color: var(--accent); font-weight: bold;">1</span></div>
+        <div style="font-size: 24px; color: #94a3b8; margin-bottom: 40px;">Enemigos derrotados: <span id="final-kills" style="color: white;">0</span></div>
+        <button class="btn btn-red" onclick="location.reload()">VOLVER A INTENTAR</button>
+    </div>
+
+    <!-- MULTIPLAYER JOIN SCREEN -->
+    <div id="multiplayer-join-screen" class="overlay hidden">
+        <h1 class="title" style="font-size: 50px;">MULTIJUGADOR</h1>
+        <div style="font-size: 24px; margin-bottom: 30px; color: #94a3b8;">Escribe tu nombre de jugador</div>
+        <input type="text" id="player-name-input" placeholder="Tu nombre..." 
+               style="padding: 15px 20px; font-size: 18px; border: 2px solid var(--accent); border-radius: 8px; background: #1e293b; color: white; width: 300px; text-align: center;"
+               onkeypress="if(event.key==='Enter') startMultiplayer()">
+        <br><br>
+        <button class="btn" onclick="startMultiplayer()">CONECTAR</button>
+        <button class="btn btn-red" onclick="backToMenu()">VOLVER</button>
+        <div style="margin-top: 30px; color: #94a3b8; font-size: 12px;">🔗 Servidor: AUTO</div>
+    </div>
+
+    <!-- MULTIPLAYER STATUS -->
+    <div id="multiplayer-status" style="position: absolute; bottom: 30px; left: 30px; background: rgba(0,0,0,0.8); border: 2px solid #10b981; border-radius: 8px; padding: 10px 15px; color: white; font-size: 12px; z-index: 10; pointer-events: none; display: none;">
+        <div>🟢 <span id="mp-status-text">Conectado</span></div>
+        <div style="font-size: 10px; color: #94a3b8; margin-top: 5px;">Sala: <span id="mp-room-code">---</span></div>
+        <div style="font-size: 10px; color: #94a3b8;">Jugadores: <span id="mp-player-count">1</span></div>
+    </div>
+</div>
+
+<script src="config.js"></script>
+<script>
+/**
+ * SOUL BROWSER INFINITY
+ * Un motor Roguelike completo en un solo archivo.
+ * Físicas AABB precisas, generación de mazmorras, luces dinámicas y sistema de audio procedural.
+ */
+
+// ==========================================
+// CONFIGURACIÓN GLOBAL Y CONSTANTES
+// ==========================================
+const C = {
+    TILE: 80,             // Tamaño base del grid
+    PLAYER_SIZE: 32,      // Hitbox pequeña para esquivar balas
+    SPEED: 3.5,
+    DASH_SPEED: 20.0,
+    DASH_TIME: 15,
+    DASH_CD: 45,
+    FRICTION: 0.85,
+    BASE_HP: 100,
+    BASE_SHIELD: 50,
+    BASE_ENERGY: 200,
+    SHIELD_REGEN_RATE: 0.05,
+    SHIELD_REGEN_DELAY: 180, // Frames
+    COLORS: {
+        bg: '#020617', wall: '#1e293b', floor: '#0f172a',
+        player: '#3b82f6', shield: '#0ea5e9', enemy: '#ef4444', elite: '#b91c1c',
+        boss: '#7f1d1d', bulletP: '#fbbf24', bulletE: '#f43f5e',
+        health: '#ef4444', energy: '#10b981', gold: '#eab308'
+    }
+};
+
+const WEAPONS = {
+    PISTOL: { name: 'Pistola', type: 'single', dmg: 10, speed: 18, rate: 20, cost: 0, spread: 0.05, range: 60, color: '#f8fafc', auto: false },
+    SMG: { name: 'Subfusil', type: 'single', dmg: 6, speed: 20, rate: 5, cost: 1, spread: 0.2, range: 45, color: '#fcd34d', auto: true },
+    SHOTGUN: { name: 'Escopeta', type: 'spread', dmg: 8, speed: 16, rate: 45, cost: 5, spread: 0.35, count: 5, range: 35, color: '#cbd5e1', auto: false },
+    SNIPER: { name: 'Francotirador', type: 'pierce', dmg: 45, speed: 35, rate: 60, cost: 8, spread: 0, range: 100, color: '#fbbf24', auto: false, pierce: true },
+    ROCKET: { name: 'Lanzacohetes', type: 'explosive', dmg: 30, speed: 12, rate: 70, cost: 12, spread: 0, range: 70, color: '#ef4444', auto: false, explodeRadius: 150 },
+    LASER: { name: 'Láser', type: 'beam', dmg: 2, speed: 0, rate: 1, cost: 0.5, spread: 0, range: 800, color: '#0ea5e9', auto: true }
+};
+
+const UPGRADES = [
+    { id: 'hp', name: 'Vida Máxima', desc: '+25 HP Máximo', basePrice: 30, apply: p => { p.maxHp += 25; p.hp += 25; } },
+    { id: 'shield', name: 'Escudo Máximo', desc: '+15 Escudo Máximo', basePrice: 40, apply: p => { p.maxShield += 15; p.shield += 15; } },
+    { id: 'energy', name: 'Energía Máxima', desc: '+50 Energía Máxima', basePrice: 20, apply: p => { p.maxEnergy += 50; p.energy += 50; } },
+    { id: 'speed', name: 'Botas Ligeras', desc: '+10% Velocidad Mov.', basePrice: 50, apply: p => { p.speedMult += 0.1; } },
+    { id: 'heal', name: 'Curación Total', desc: 'Restaura HP y Energía al 100%', basePrice: 25, apply: p => { p.hp = p.maxHp; p.energy = p.maxEnergy; } }
+];
+
+// ==========================================
+// ESTADO GLOBAL DEL JUEGO
+// ==========================================
+let canvas, ctx, lightCanvas, lightCtx, mapCanvas, mapCtx;
+let game = {
+    state: 'MENU',
+    level: 1,
+    coins: 0,
+    kills: 0,
+    frame: 0,
+    camera: { x: 0, y: 0, shake: 0 },
+    mouse: { x: 0, y: 0, worldX: 0, worldY: 0 },
+    keys: {},
+    audioCtx: null,
+    shopPrices: {}
+};
+
+let player;
+let entities = []; // Enemigos
+let bullets = [];
+let particles = [];
+let items = [];
+let map = { walls: [], floors: [], rooms: [], portal: null };
+
+// ==========================================
+// MOTOR DE AUDIO (Web Audio API - Sintetizador)
+// ==========================================
+const AudioSys = {
+    init: function() {
+        if (!game.audioCtx) {
+            window.AudioContext = window.AudioContext || window.webkitAudioContext;
+            game.audioCtx = new AudioContext();
+        }
+        if (game.audioCtx.state === 'suspended') game.audioCtx.resume();
+    },
+    playTone: function(freq, type, duration, vol=0.1, slide=0) {
+        if (!game.audioCtx) return;
+        let osc = game.audioCtx.createOscillator();
+        let gain = game.audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, game.audioCtx.currentTime);
+        if (slide !== 0) {
+            osc.frequency.exponentialRampToValueAtTime(freq * slide, game.audioCtx.currentTime + duration);
+        }
+        gain.gain.setValueAtTime(vol, game.audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, game.audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(game.audioCtx.destination);
+        osc.start();
+        osc.stop(game.audioCtx.currentTime + duration);
+    },
+    playNoise: function(duration, vol=0.2) {
+        if (!game.audioCtx) return;
+        let bufferSize = game.audioCtx.sampleRate * duration;
+        let buffer = game.audioCtx.createBuffer(1, bufferSize, game.audioCtx.sampleRate);
+        let data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+        let noise = game.audioCtx.createBufferSource();
+        noise.buffer = buffer;
+        let filter = game.audioCtx.createBiquadFilter();
+        filter.type = 'lowpass'; filter.frequency.value = 1000;
+        let gain = game.audioCtx.createGain();
+        gain.gain.setValueAtTime(vol, game.audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, game.audioCtx.currentTime + duration);
+        noise.connect(filter); filter.connect(gain); gain.connect(game.audioCtx.destination);
+        noise.start();
+    },
+    shoot: () => AudioSys.playTone(400, 'square', 0.1, 0.05, 0.5),
+    hit: () => AudioSys.playTone(150, 'sawtooth', 0.1, 0.1, 0.5),
+    enemyHit: () => AudioSys.playTone(300, 'square', 0.1, 0.05, 1.5),
+    dash: () => AudioSys.playTone(200, 'sine', 0.2, 0.1, 0.5),
+    explosion: () => AudioSys.playNoise(0.4, 0.4),
+    coin: () => AudioSys.playTone(1200, 'sine', 0.1, 0.1, 2.0),
+    powerup: () => { AudioSys.playTone(400, 'sine', 0.1, 0.1, 1.5); setTimeout(()=>AudioSys.playTone(600, 'sine', 0.2, 0.1, 1.5), 100); }
+};
+
+// ==========================================
+// MATEMÁTICAS Y COLISIONES (AABB)
+// ==========================================
+const MathUtils = {
+    rand: (min, max) => Math.random() * (max - min) + min,
+    randInt: (min, max) => Math.floor(Math.random() * (max - min + 1)) + min,
+    dist: (x1, y1, x2, y2) => Math.hypot(x2 - x1, y2 - y1),
+    angle: (x1, y1, x2, y2) => Math.atan2(y2 - y1, x2 - x1),
+    clamp: (val, min, max) => Math.max(min, Math.min(max, val)),
+    
+    // Intersección básica AABB
+    AABB: (r1, r2) => {
+        return r1.x < r2.x + r2.w && r1.x + r1.w > r2.x &&
+               r1.y < r2.y + r2.h && r1.y + r1.h > r2.y;
+    },
+    
+    // Resuelve colisiones separando ejes. Permite deslizarse (Wall Sliding)
+    resolveCollision: (entity, dx, dy, walls) => {
+        // Mover en X
+        entity.x += dx;
+        for (let w of walls) {
+            if (MathUtils.AABB(entity, w)) {
+                if (dx > 0) entity.x = w.x - entity.w; // Choca por izquierda del muro
+                else if (dx < 0) entity.x = w.x + w.w; // Choca por derecha del muro
+                entity.vx = 0;
+            }
+        }
+        // Mover en Y
+        entity.y += dy;
+        for (let w of walls) {
+            if (MathUtils.AABB(entity, w)) {
+                if (dy > 0) entity.y = w.y - entity.h; // Choca por arriba del muro
+                else if (dy < 0) entity.y = w.y + w.h; // Choca por abajo del muro
+                entity.vy = 0;
+            }
+        }
+    },
+    
+    // Raycast para visión y balas láser
+    lineIntersectRect: (x1, y1, x2, y2, rx, ry, rw, rh) => {
+        let left = MathUtils.lineIntersectLine(x1,y1,x2,y2, rx,ry, rx,ry+rh);
+        let right = MathUtils.lineIntersectLine(x1,y1,x2,y2, rx+rw,ry, rx+rw,ry+rh);
+        let top = MathUtils.lineIntersectLine(x1,y1,x2,y2, rx,ry, rx+rw,ry);
+        let bottom = MathUtils.lineIntersectLine(x1,y1,x2,y2, rx,ry+rh, rx+rw,ry+rh);
+        return left || right || top || bottom;
+    },
+    lineIntersectLine: (x1,y1,x2,y2, x3,y3,x4,y4) => {
+        let uA = ((x4-x3)*(y1-y3) - (y4-y3)*(x1-x3)) / ((y4-y3)*(x2-x1) - (x4-x3)*(y2-y1));
+        let uB = ((x2-x1)*(y1-y3) - (y2-y1)*(x1-x3)) / ((y4-y3)*(x2-x1) - (x4-x3)*(y2-y1));
+        return (uA >= 0 && uA <= 1 && uB >= 0 && uB <= 1);
+    }
+};
+
+// ==========================================
+// GENERADOR DE MAZMORRAS (Random Walk / Rooms)
+// ==========================================
+const DungeonGen = {
+    generate: function(level) {
+        map.walls = []; map.floors = []; map.rooms = []; map.portal = null;
+        const GRID_SIZE = 50;
+        let grid = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill('#'));
+        
+        let numRooms = Math.min(5 + Math.floor(level * 1.5), 20); // Escala con nivel
+        let rooms = [];
+        
+        // Crear habitación inicial
+        let startX = Math.floor(GRID_SIZE/2), startY = Math.floor(GRID_SIZE/2);
+        rooms.push(this.carveRoom(grid, startX, startY, 4, 4));
+        
+        // Crear más habitaciones y conectarlas
+        for(let i=1; i<numRooms; i++) {
+            let pRoom = rooms[MathUtils.randInt(0, rooms.length-1)];
+            let dir = MathUtils.randInt(0,3);
+            let dist = MathUtils.randInt(4, 10);
+            let rw = MathUtils.randInt(4, 8), rh = MathUtils.randInt(4, 8);
+            
+            // Jefes en habitaciones enormes
+            if (level % 5 === 0 && i === numRooms -1) { rw = 12; rh = 12; }
+
+            let nx = pRoom.cx, ny = pRoom.cy;
+            if (dir===0) ny -= dist; if (dir===1) nx += dist;
+            if (dir===2) ny += dist; if (dir===3) nx -= dist;
+            
+            // Límite de mapa
+            nx = MathUtils.clamp(nx, rw, GRID_SIZE-rw);
+            ny = MathUtils.clamp(ny, rh, GRID_SIZE-rh);
+            
+            let newRoom = this.carveRoom(grid, nx, ny, rw, rh);
+            rooms.push(newRoom);
+            this.carveCorridor(grid, pRoom.cx, pRoom.cy, newRoom.cx, newRoom.cy);
+        }
+
+        map.rooms = rooms;
+
+        // Convertir grid a Hitboxes (AABB) optimizados
+        for(let y=0; y<GRID_SIZE; y++) {
+            for(let x=0; x<GRID_SIZE; x++) {
+                if(grid[y][x] === '.') {
+                    map.floors.push({ x: x*C.TILE, y: y*C.TILE, w: C.TILE, h: C.TILE });
+                }
+            }
+        }
+        
+        // Crear muros rectangulares (solid hitboxes)
+        for(let y=0; y<GRID_SIZE; y++) {
+            for(let x=0; x<GRID_SIZE; x++) {
+                if(grid[y][x] === '#') {
+                    // Chequear si es un muro visible (adyacente a piso)
+                    let visible = false;
+                    for(let dy=-1; dy<=1; dy++){
+                        for(let dx=-1; dx<=1; dx++){
+                            if(grid[y+dy] && grid[y+dy][x+dx] === '.') visible = true;
+                        }
+                    }
+                    if(visible) {
+                        map.walls.push({ x: x*C.TILE, y: y*C.TILE, w: C.TILE, h: C.TILE });
+                    }
+                }
+            }
+        }
+
+        // Posicionar Jugador en habitación 0
+        return { 
+            px: rooms[0].cx * C.TILE, 
+            py: rooms[0].cy * C.TILE,
+            lastRoom: rooms[rooms.length-1]
+        };
+    },
+
+    carveRoom: (grid, cx, cy, w, h) => {
+        let x1 = Math.floor(cx - w/2), y1 = Math.floor(cy - h/2);
+        let x2 = Math.floor(cx + w/2), y2 = Math.floor(cy + h/2);
+        for(let y=y1; y<=y2; y++) {
+            for(let x=x1; x<=x2; x++) {
+                if(grid[y] && grid[y][x]) grid[y][x] = '.';
+            }
+        }
+        return { cx, cy, w, h, x: x1*C.TILE, y: y1*C.TILE, rw: w*C.TILE, rh: h*C.TILE };
+    },
+
+    carveCorridor: (grid, x1, y1, x2, y2) => {
+        let x = x1, y = y1;
+        // Hacer pasillos de ancho 2 o 3 para evitar atascos
+        const carve = (px, py) => {
+            for(let dy=-1; dy<=1; dy++) for(let dx=-1; dx<=1; dx++) {
+                if(grid[py+dy] && grid[py+dy][px+dx]) grid[py+dy][px+dx] = '.';
+            }
+        };
+        while(x !== x2) { x += Math.sign(x2 - x); carve(x, y); }
+        while(y !== y2) { y += Math.sign(y2 - y); carve(x, y); }
+    }
+};
+
+// ==========================================
+// CLASES DEL JUEGO
+// ==========================================
+class Entity {
+    constructor(x, y, w, h) {
+        this.x = x; this.y = y; this.w = w; this.h = h;
+        this.vx = 0; this.vy = 0;
+        this.hp = 100; this.maxHp = 100;
+        this.dead = false;
+        this.color = '#fff';
+    }
+    update() {
+        // Aplicar físicas base
+        MathUtils.resolveCollision(this, this.vx, this.vy, map.walls);
+        this.vx *= C.FRICTION; this.vy *= C.FRICTION;
+        if (Math.abs(this.vx) < 0.1) this.vx = 0;
+        if (Math.abs(this.vy) < 0.1) this.vy = 0;
+    }
+    draw() {
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x - game.camera.x, this.y - game.camera.y, this.w, this.h);
+    }
+    takeDamage(dmg) {
+        this.hp -= dmg;
+        if(this.hp <= 0) this.die();
+    }
+    die() { this.dead = true; }
+}
+
+class Player extends Entity {
+    constructor(x, y) {
+        super(x, y, C.PLAYER_SIZE, C.PLAYER_SIZE);
+        this.color = C.COLORS.player;
+        this.maxHp = C.BASE_HP; this.hp = this.maxHp;
+        this.maxShield = C.BASE_SHIELD; this.shield = this.maxShield;
+        this.maxEnergy = C.BASE_ENERGY; this.energy = this.maxEnergy;
+        
+        this.speedMult = 1.0;
+        this.weapons = [WEAPONS.PISTOL];
+        this.currentWeaponIdx = 0;
+        
+        this.dashTimer = 0;
+        this.dashCooldown = 0;
+        this.lastHitFrame = 0;
+        this.lastShotFrame = 0;
+        this.angle = 0;
+    }
+
+    get weapon() { return this.weapons[this.currentWeaponIdx]; }
+
+    update() {
+        let isDashing = this.dashTimer > 0;
+        if (this.dashTimer > 0) this.dashTimer--;
+        if (this.dashCooldown > 0) this.dashCooldown--;
+
+        let moveX = 0, moveY = 0;
+        if (!isDashing) {
+            if (game.keys['w']) moveY -= 1;
+            if (game.keys['s']) moveY += 1;
+            if (game.keys['a']) moveX -= 1;
+            if (game.keys['d']) moveX += 1;
+
+            if (moveX !== 0 && moveY !== 0) { moveX *= 0.707; moveY *= 0.707; }
+
+            // Lógica de Dash
+            if ((game.keys[' '] || game.keys['rightclick']) && this.dashCooldown === 0 && (moveX || moveY)) {
+                this.dashTimer = C.DASH_TIME;
+                this.dashCooldown = C.DASH_CD;
+                this.vx = moveX * C.DASH_SPEED;
+                this.vy = moveY * C.DASH_SPEED;
+                AudioSys.dash();
+                EffectSys.createDashTrail(this);
+            } else {
+                this.vx += moveX * C.SPEED * this.speedMult;
+                this.vy += moveY * C.SPEED * this.speedMult;
+            }
+        } else {
+            // Generar partículas durante el dash
+            if (game.frame % 2 === 0) EffectSys.createDashTrail(this);
+        }
+
+        // Regeneración de Escudo
+        if (game.frame - this.lastHitFrame > C.SHIELD_REGEN_DELAY && this.shield < this.maxShield) {
+            this.shield = Math.min(this.maxShield, this.shield + C.SHIELD_REGEN_RATE);
+        }
+
+        super.update();
+
+        // Apuntar e Interacción
+        this.angle = MathUtils.angle(this.x + this.w/2, this.y + this.h/2, game.mouse.worldX, game.mouse.worldY);
+        
+        // Disparo
+        if (game.keys['click'] && !isDashing) {
+            if (this.weapon.auto || !this.hasClicked) {
+                this.shoot();
+                this.hasClicked = true;
+            }
+        } else {
+            this.hasClicked = false;
+        }
+
+        // Cambio de arma (Q)
+        if (game.keys['q'] && !this.qPressed) {
+            this.currentWeaponIdx = (this.currentWeaponIdx + 1) % this.weapons.length;
+            this.qPressed = true;
+        } else if (!game.keys['q']) {
+            this.qPressed = false;
+        }
+        
+        // Recoger Items o Portal
+        this.checkInteractions();
+    }
+
+    shoot() {
+        let w = this.weapon;
+        if (game.frame - this.lastShotFrame < w.rate) return;
+        if (this.energy < w.cost) {
+            // Efecto sonido sin energía
+            return;
+        }
+
+        this.energy -= w.cost;
+        this.lastShotFrame = game.frame;
+        game.camera.shake = w.dmg * 0.2;
+        AudioSys.shoot();
+
+        let cx = this.x + this.w/2, cy = this.y + this.h/2;
+        
+        if (w.type === 'spread') {
+            for(let i=0; i<w.count; i++) {
+                let ang = this.angle + MathUtils.rand(-w.spread, w.spread);
+                bullets.push(new Bullet(cx, cy, ang, w, true));
+            }
+        } else if (w.type === 'beam') {
+            // Lógica de láser instantáneo
+            let endX = cx + Math.cos(this.angle) * w.range;
+            let endY = cy + Math.sin(this.angle) * w.range;
+            // Raycast simple vs enemigos y muros
+            EffectSys.createLaser(cx, cy, endX, endY, w.color);
+            entities.forEach(e => {
+                if (MathUtils.lineIntersectRect(cx, cy, endX, endY, e.x, e.y, e.w, e.h)) {
+                    e.takeDamage(w.dmg);
+                    EffectSys.spawnParticles(e.x+e.w/2, e.y+e.h/2, w.color, 3);
+                }
+            });
+        } else {
+            let ang = this.angle + MathUtils.rand(-w.spread, w.spread);
+            bullets.push(new Bullet(cx, cy, ang, w, true));
+        }
+
+        // Retroceso
+        this.vx -= Math.cos(this.angle) * (w.dmg * 0.3);
+        this.vy -= Math.sin(this.angle) * (w.dmg * 0.3);
+    }
+
+    takeDamage(dmg) {
+        if (this.dashTimer > 0) return; // Invencible en Dash
+        
+        AudioSys.hit();
+        game.camera.shake = 10;
+        this.lastHitFrame = game.frame;
+        
+        let remaining = dmg;
+        if (this.shield > 0) {
+            let shieldDmg = Math.min(this.shield, remaining);
+            this.shield -= shieldDmg;
+            remaining -= shieldDmg;
+            EffectSys.spawnText('-' + shieldDmg, this.x, this.y, C.COLORS.shield);
+        }
+        if (remaining > 0) {
+            this.hp -= remaining;
+            EffectSys.spawnText('-' + remaining, this.x, this.y, C.COLORS.health);
+            EffectSys.spawnParticles(this.x + this.w/2, this.y + this.h/2, '#f00', 10);
+        }
+        
+        if(this.hp <= 0) {
+            game.state = 'GAMEOVER';
+            document.getElementById('game-over-screen').classList.remove('hidden');
+            document.getElementById('final-level').innerText = game.level;
+            document.getElementById('final-kills').innerText = game.kills;
+        }
+    }
+
+    checkInteractions() {
+        let promptDiv = document.getElementById('interaction-prompt');
+        let canInteract = false;
+
+        // Portal
+        if (map.portal && MathUtils.dist(this.x, this.y, map.portal.x, map.portal.y) < 100) {
+            canInteract = true;
+            if (game.keys['e']) showShop();
+        }
+
+        // Cofres / Armas tiradas
+        items.forEach(item => {
+            if (MathUtils.AABB(this, item)) {
+                if (item.type === 'coin') {
+                    game.coins += item.val;
+                    AudioSys.coin();
+                    item.dead = true;
+                } else if (item.type === 'energy') {
+                    this.energy = Math.min(this.maxEnergy, this.energy + item.val);
+                    AudioSys.powerup();
+                    item.dead = true;
+                } else if (item.type === 'health') {
+                    this.hp = Math.min(this.maxHp, this.hp + item.val);
+                    AudioSys.powerup();
+                    item.dead = true;
+                } else if (item.type === 'weapon') {
+                    canInteract = true;
+                    if (game.keys['e']) {
+                        if (!this.weapons.includes(item.weapon)) {
+                            this.weapons.push(item.weapon);
+                            this.currentWeaponIdx = this.weapons.length - 1;
+                        }
+                        item.dead = true;
+                        AudioSys.powerup();
+                        game.keys['e'] = false; // Prevent double pickup
+                    }
+                }
+            }
+        });
+
+        if (canInteract) promptDiv.classList.remove('hidden');
+        else promptDiv.classList.add('hidden');
+    }
+
+    draw() {
+        ctx.save();
+        ctx.translate(this.x + this.w/2 - game.camera.x, this.y + this.h/2 - game.camera.y);
+        
+        // Escudo visual
+        if (this.shield > 0) {
+            ctx.beginPath();
+            ctx.arc(0, 0, this.w, 0, Math.PI*2);
+            ctx.strokeStyle = `rgba(14, 165, 233, ${0.2 + (this.shield/this.maxShield)*0.5})`;
+            ctx.lineWidth = 3;
+            ctx.stroke();
+        }
+
+        ctx.rotate(this.angle);
+        
+        // Cuerpo
+        ctx.fillStyle = this.color;
+        ctx.shadowColor = this.color;
+        ctx.shadowBlur = 10;
+        ctx.fillRect(-this.w/2, -this.h/2, this.w, this.h);
+        ctx.shadowBlur = 0;
+        
+        // Ojos
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(this.w/2 - 8, -10, 6, 6);
+        ctx.fillRect(this.w/2 - 8, 4, 6, 6);
+        
+        // Arma equipada
+        ctx.fillStyle = this.weapon.color;
+        ctx.fillRect(this.w/2, -4, 18, 8);
+        
+        ctx.restore();
+    }
+}
+
+class Enemy extends Entity {
+    constructor(x, y, tier) {
+        let size = 40;
+        if (tier === 'boss') size = 100;
+        else if (tier === 'tank') size = 60;
+        super(x, y, size, size);
+        
+        this.tier = tier;
+        this.speed = (tier === 'fast') ? 4.5 : (tier === 'tank' ? 2 : 3);
+        
+        // Dificultad escala con el nivel
+        let scale = 1 + (game.level * 0.2);
+        this.maxHp = (tier === 'boss' ? 1000 : (tier === 'tank' ? 150 : 40)) * scale;
+        this.hp = this.maxHp;
+        
+        this.color = (tier === 'fast') ? '#f97316' : (tier === 'tank' ? '#b91c1c' : (tier === 'boss' ? '#7f1d1d' : C.COLORS.enemy));
+        this.lastShot = 0;
+    }
+
+    update() {
+        let dist = MathUtils.dist(this.x, this.y, player.x, player.y);
+        let ang = MathUtils.angle(this.x, this.y, player.x, player.y);
+        
+        // Comportamiento de Movimiento
+        if (dist < 800) { // Rango de visión
+            // Predictive aim for bosses/tanks
+            if (this.tier === 'boss' || this.tier === 'tank') {
+                let px = player.x + player.vx * 10;
+                let py = player.y + player.vy * 10;
+                ang = MathUtils.angle(this.x, this.y, px, py);
+            }
+
+            let move = true;
+            if ((this.tier === 'shooter' || this.tier === 'boss') && dist < 300) move = false; // Mantener distancia
+            
+            if (move) {
+                this.vx += Math.cos(ang) * this.speed * 0.2;
+                this.vy += Math.sin(ang) * this.speed * 0.2;
+            }
+
+            // Disparo
+            if (game.frame - this.lastShot > (this.tier==='boss'?30:(this.tier==='shooter'?60:120))) {
+                if (this.tier === 'shooter') {
+                    bullets.push(new Bullet(this.x+this.w/2, this.y+this.h/2, ang, {dmg: 10*game.level*0.5, speed: 8, color: C.COLORS.bulletE}, false));
+                    this.lastShot = game.frame;
+                } else if (this.tier === 'boss') {
+                    // Patrón Bullet Hell
+                    for(let i=0; i<8; i++) {
+                        let offset = (Math.PI*2/8) * i + (game.frame*0.05);
+                        bullets.push(new Bullet(this.x+this.w/2, this.y+this.h/2, offset, {dmg: 15, speed: 6, color: '#f43f5e'}, false));
+                    }
+                    this.lastShot = game.frame;
+                } else if (this.tier === 'tank' && dist < 400) {
+                    // Shotgun enemy
+                    for(let i=-2; i<=2; i++) {
+                        bullets.push(new Bullet(this.x+this.w/2, this.y+this.h/2, ang + (i*0.1), {dmg: 12, speed: 10, color: '#fb923c'}, false));
+                    }
+                    this.lastShot = game.frame;
+                }
+            }
+        }
+
+        // Daño por contacto melee
+        if (MathUtils.dist(this.x, this.y, player.x, player.y) < (this.w/2 + player.w/2 + 5)) {
+            player.takeDamage((this.tier==='fast'? 15 : 5) + game.level);
+        }
+
+        super.update();
+    }
+
+    die() {
+        super.die();
+        game.kills++;
+        AudioSys.enemyHit();
+        EffectSys.spawnParticles(this.x+this.w/2, this.y+this.h/2, this.color, 20);
+        
+        // Loot Drop
+        if (Math.random() < 0.6) items.push(new Item(this.x, this.y, 'coin', MathUtils.randInt(1, 3 + game.level)));
+        if (Math.random() < 0.2) items.push(new Item(this.x+20, this.y, 'energy', 25));
+        if (Math.random() < 0.1) items.push(new Item(this.x-20, this.y, 'health', 20));
+        
+        if (this.tier === 'boss') {
+            // Generar Portal
+            map.portal = { x: this.x + this.w/2, y: this.y + this.h/2, radius: 40 };
+            // Boss drop arma rara
+            items.push(new Item(this.x, this.y+50, 'weapon', null, WEAPONS.ROCKET));
+        } else if (entities.length <= 1) { // Último enemigo vivo (si no hay jefe)
+            map.portal = { x: this.x + this.w/2, y: this.y + this.h/2, radius: 40 };
+        }
+    }
+
+    draw() {
+        let cx = this.x + this.w/2 - game.camera.x;
+        let cy = this.y + this.h/2 - game.camera.y;
+        
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x - game.camera.x, this.y - game.camera.y, this.w, this.h);
+        
+        // Barra de vida
+        ctx.fillStyle = '#000';
+        ctx.fillRect(this.x - game.camera.x, this.y - game.camera.y - 10, this.w, 5);
+        ctx.fillStyle = '#ef4444';
+        ctx.fillRect(this.x - game.camera.x, this.y - game.camera.y - 10, (this.hp/this.maxHp)*this.w, 5);
+    }
+}
+
+class Bullet {
+    constructor(x, y, angle, cfg, isPlayer) {
+        this.x = x; this.y = y; this.w = 6; this.h = 6;
+        this.vx = Math.cos(angle) * cfg.speed;
+        this.vy = Math.sin(angle) * cfg.speed;
+        this.dmg = cfg.dmg;
+        this.color = cfg.color;
+        this.isPlayer = isPlayer;
+        this.life = cfg.range || 100;
+        this.cfg = cfg;
+        this.dead = false;
+        
+        // Posición anterior para colisión continua (Swept)
+        this.px = x; this.py = y;
+    }
+
+    update() {
+        this.px = this.x; this.py = this.y;
+        this.x += this.vx; this.y += this.vy;
+        this.life--;
+        if (this.life <= 0) this.dead = true;
+
+        // Colisión con Muros
+        for(let w of map.walls) {
+            if (MathUtils.lineIntersectRect(this.px, this.py, this.x, this.y, w.x, w.y, w.w, w.h)) {
+                this.destroy();
+                return;
+            }
+        }
+
+        // Colisión Entidades
+        if (this.isPlayer) {
+            for(let e of entities) {
+                if (MathUtils.AABB(this, e)) {
+                    e.takeDamage(this.dmg);
+                    EffectSys.spawnText(this.dmg, e.x, e.y, '#fff');
+                    if (!this.cfg.pierce) this.destroy();
+                }
+            }
+        } else {
+            if (MathUtils.AABB(this, player)) {
+                player.takeDamage(this.dmg);
+                this.destroy();
+            }
+        }
+    }
+
+    destroy() {
+        this.dead = true;
+        if (this.cfg.type === 'explosive') {
+            AudioSys.explosion();
+            EffectSys.spawnParticles(this.x, this.y, '#ef4444', 30, this.cfg.explodeRadius);
+            game.camera.shake = 15;
+            // Daño de área
+            let r = this.cfg.explodeRadius;
+            entities.forEach(e => {
+                if (MathUtils.dist(this.x, this.y, e.x+e.w/2, e.y+e.h/2) < r) {
+                    e.takeDamage(this.dmg);
+                }
+            });
+            if (MathUtils.dist(this.x, this.y, player.x+player.w/2, player.y+player.h/2) < r) {
+                player.takeDamage(this.dmg/2);
+            }
+        } else {
+            EffectSys.spawnParticles(this.x, this.y, this.color, 3);
+        }
+    }
+
+    draw() {
+        ctx.fillStyle = this.color;
+        ctx.shadowColor = this.color;
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.arc(this.x - game.camera.x, this.y - game.camera.y, this.w, 0, Math.PI*2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+    }
+}
+
+class Item {
+    constructor(x, y, type, val, weapon=null) {
+        this.x = x; this.y = y; this.w = 20; this.h = 20;
+        this.type = type; this.val = val; this.weapon = weapon;
+        this.dead = false;
+        this.hoverY = 0;
+    }
+    update() {
+        this.hoverY = Math.sin(game.frame * 0.1) * 5;
+    }
+    draw() {
+        let sx = this.x - game.camera.x;
+        let sy = this.y - game.camera.y + this.hoverY;
+        
+        ctx.shadowBlur = 15;
+        if (this.type === 'coin') {
+            ctx.fillStyle = C.COLORS.gold; ctx.shadowColor = C.COLORS.gold;
+            ctx.beginPath(); ctx.arc(sx+10, sy+10, 8, 0, Math.PI*2); ctx.fill();
+        } else if (this.type === 'energy') {
+            ctx.fillStyle = C.COLORS.energy; ctx.shadowColor = C.COLORS.energy;
+            ctx.fillRect(sx+5, sy+5, 10, 15);
+        } else if (this.type === 'health') {
+            ctx.fillStyle = C.COLORS.health; ctx.shadowColor = C.COLORS.health;
+            ctx.fillRect(sx, sy+6, 20, 8); ctx.fillRect(sx+6, sy, 8, 20);
+        } else if (this.type === 'weapon') {
+            ctx.fillStyle = this.weapon.color; ctx.shadowColor = this.weapon.color;
+            ctx.fillRect(sx, sy+5, 25, 10);
+            ctx.fillStyle = '#fff'; ctx.font = '10px Arial';
+            ctx.fillText(this.weapon.name, sx-10, sy-5);
+        }
+        ctx.shadowBlur = 0;
+    }
+}
+
+// ==========================================
+// SISTEMA DE EFECTOS (Partículas y Textos)
+// ==========================================
+const EffectSys = {
+    texts: [],
+    lasers: [],
+    
+    spawnParticles: (x, y, color, count, speed=5) => {
+        for(let i=0; i<count; i++) {
+            particles.push({
+                x: x, y: y,
+                vx: MathUtils.rand(-speed, speed), vy: MathUtils.rand(-speed, speed),
+                life: 1.0, decay: MathUtils.rand(0.02, 0.05), size: MathUtils.rand(2, 6), color: color
+            });
+        }
+    },
+    createDashTrail: (ent) => {
+        particles.push({
+            x: ent.x+ent.w/2, y: ent.y+ent.h/2, vx:0, vy:0,
+            life: 0.5, decay: 0.05, size: ent.w, color: 'rgba(59, 130, 246, 0.5)', isRect: true
+        });
+    },
+    createLaser: (x1, y1, x2, y2, color) => {
+        EffectSys.lasers.push({ x1, y1, x2, y2, color, life: 10 });
+    },
+    spawnText: (text, x, y, color) => {
+        EffectSys.texts.push({ text, x, y, life: 1.0, color });
+    },
+    
+    updateAndDraw: () => {
+        // Partículas
+        for(let i=particles.length-1; i>=0; i--) {
+            let p = particles[i];
+            p.x += p.vx; p.y += p.vy; p.life -= p.decay;
+            if (p.life <= 0) { particles.splice(i, 1); continue; }
+            
+            ctx.globalAlpha = p.life;
+            ctx.fillStyle = p.color;
+            if (p.isRect) {
+                ctx.translate(p.x-game.camera.x, p.y-game.camera.y);
+                ctx.rotate(player.angle);
+                ctx.fillRect(-p.size/2, -p.size/2, p.size, p.size);
+                ctx.resetTransform();
+            } else {
+                ctx.fillRect(p.x - game.camera.x, p.y - game.camera.y, p.size, p.size);
+            }
+        }
+        ctx.globalAlpha = 1.0;
+
+        // Textos flotantes
+        ctx.font = 'bold 20px Courier New';
+        for(let i=EffectSys.texts.length-1; i>=0; i--) {
+            let t = EffectSys.texts[i];
+            t.y -= 1; t.life -= 0.02;
+            if(t.life <= 0) { EffectSys.texts.splice(i,1); continue; }
+            ctx.globalAlpha = t.life;
+            ctx.fillStyle = t.color;
+            ctx.fillText(t.text, t.x - game.camera.x, t.y - game.camera.y);
+        }
+        ctx.globalAlpha = 1.0;
+
+        // Lasers
+        ctx.lineWidth = 4;
+        for(let i=EffectSys.lasers.length-1; i>=0; i--) {
+            let l = EffectSys.lasers[i];
+            l.life--;
+            if(l.life <= 0) { EffectSys.lasers.splice(i,1); continue; }
+            ctx.strokeStyle = l.color;
+            ctx.globalAlpha = l.life / 10;
+            ctx.beginPath(); ctx.moveTo(l.x1-game.camera.x, l.y1-game.camera.y); ctx.lineTo(l.x2-game.camera.x, l.y2-game.camera.y); ctx.stroke();
+        }
+        ctx.globalAlpha = 1.0;
+    }
+};
+
+// ==========================================
+// RENDERIZADO Y MOTOR PRINCIPAL
+// ==========================================
+function initGame() {
+    AudioSys.init();
+    document.getElementById('menu-screen').classList.add('hidden');
+    
+    canvas = document.getElementById('gameCanvas');
+    ctx = canvas.getContext('2d', { alpha: false }); // Optimización
+    lightCanvas = document.getElementById('lightingCanvas');
+    lightCtx = lightCanvas.getContext('2d');
+    mapCanvas = document.getElementById('minimapCanvas');
+    mapCtx = mapCanvas.getContext('2d');
+    
+    resize();
+    window.addEventListener('resize', resize);
+    
+    // Inputs
+    window.addEventListener('keydown', e => {
+        game.keys[e.key.toLowerCase()] = true;
+        if(e.code === 'Space') { game.keys[' '] = true; e.preventDefault(); }
+    });
+    window.addEventListener('keyup', e => {
+        game.keys[e.key.toLowerCase()] = false;
+        if(e.code === 'Space') game.keys[' '] = false;
+    });
+    window.addEventListener('mousedown', e => {
+        if(e.button === 0) game.keys['click'] = true;
+        if(e.button === 2) game.keys['rightclick'] = true;
+    });
+    window.addEventListener('mouseup', e => {
+        if(e.button === 0) game.keys['click'] = false;
+        if(e.button === 2) game.keys['rightclick'] = false;
+    });
+    window.addEventListener('contextmenu', e => e.preventDefault());
+    window.addEventListener('mousemove', e => {
+        game.mouse.x = e.clientX; game.mouse.y = e.clientY;
+    });
+
+    // Empezar
+    player = new Player(0, 0);
+    game.state = 'PLAYING';
+    loadLevel();
+    requestAnimationFrame(gameLoop);
+}
+
+function resize() {
+    canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+    lightCanvas.width = window.innerWidth; lightCanvas.height = window.innerHeight;
+}
+
+function loadLevel() {
+    let spawn = DungeonGen.generate(game.level);
+    player.x = spawn.px; player.y = spawn.py;
+    player.vx = 0; player.vy = 0;
+    
+    entities = []; bullets = []; particles = []; items = [];
+    
+    // Generar Enemigos
+    let numEnemies = Math.floor(5 + game.level * 2);
+    let isBossLevel = (game.level % 5 === 0);
+    
+    for(let i=0; i<numEnemies; i++) {
+        // No spawn en primera habitación
+        let room = map.rooms[MathUtils.randInt(1, map.rooms.length-1)];
+        let x = room.x + MathUtils.rand(C.TILE, room.rw - C.TILE);
+        let y = room.y + MathUtils.rand(C.TILE, room.rh - C.TILE);
+        
+        let rand = Math.random();
+        let type = 'grunt';
+        if (rand > 0.8) type = 'tank';
+        else if (rand > 0.5) type = 'shooter';
+        else if (rand > 0.3) type = 'fast';
+        
+        entities.push(new Enemy(x, y, type));
+    }
+    
+    if (isBossLevel) {
+        entities = []; // Limpiar para el jefe
+        let room = spawn.lastRoom;
+        entities.push(new Enemy(room.cx*C.TILE, room.cy*C.TILE, 'boss'));
+    }
+
+    // Soltar un arma nueva cada pocos niveles
+    if (game.level % 2 === 0 && !isBossLevel) {
+        let weaponsArray = Object.values(WEAPONS);
+        let randomW = weaponsArray[MathUtils.randInt(1, weaponsArray.length-1)];
+        let room = map.rooms[MathUtils.randInt(1, map.rooms.length-1)];
+        items.push(new Item(room.cx*C.TILE, room.cy*C.TILE, 'weapon', null, randomW));
+    }
+
+    updateUI();
+    drawMinimap();
+}
+
+function gameLoop() {
+    if (game.state !== 'PLAYING') return;
+    
+    game.frame++;
+    
+    // Update input world coords
+    game.mouse.worldX = game.mouse.x + game.camera.x;
+    game.mouse.worldY = game.mouse.y + game.camera.y;
+
+    // Update Objects
+    player.update();
+    entities.forEach(e => e.update());
+    entities = entities.filter(e => !e.dead);
+    bullets.forEach(b => b.update());
+    bullets = bullets.filter(b => !b.dead);
+    items.forEach(i => i.update());
+    items = items.filter(i => !i.dead);
+
+    // Sincronizar posición del jugador en multijugador
+    if (isMultiplayer && game.frame % 3 === 0) {
+        syncPlayerPosition();
+    }
+
+    // Camera follow & shake
+    let targetCamX = player.x + player.w/2 - canvas.width/2;
+    let targetCamY = player.y + player.h/2 - canvas.height/2;
+    // Mouse lookahead
+    targetCamX += (game.mouse.x - canvas.width/2) * 0.2;
+    targetCamY += (game.mouse.y - canvas.height/2) * 0.2;
+    
+    game.camera.x += (targetCamX - game.camera.x) * 0.1;
+    game.camera.y += (targetCamY - game.camera.y) * 0.1;
+    
+    if (game.camera.shake > 0) {
+        game.camera.x += MathUtils.rand(-game.camera.shake, game.camera.shake);
+        game.camera.y += MathUtils.rand(-game.camera.shake, game.camera.shake);
+        game.camera.shake *= 0.9;
+        if(game.camera.shake < 0.5) game.camera.shake = 0;
+    }
+
+    draw();
+    updateUI();
+    updateMultiplayerStatus();
+    
+    if (game.frame % 30 === 0) drawMinimap();
+
+    requestAnimationFrame(gameLoop);
+}
+
+function draw() {
+    // 1. Limpiar pantalla
+    ctx.fillStyle = C.COLORS.bg;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // 2. Dibujar Suelos (Culling básico)
+    ctx.fillStyle = C.COLORS.floor;
+    map.floors.forEach(f => {
+        if(f.x > game.camera.x - C.TILE && f.x < game.camera.x + canvas.width &&
+           f.y > game.camera.y - C.TILE && f.y < game.camera.y + canvas.height) {
+            ctx.fillRect(f.x - game.camera.x, f.y - game.camera.y, f.w, f.h);
+        }
+    });
+
+    // 3. Dibujar Portal
+    if (map.portal) {
+        ctx.fillStyle = '#a855f7';
+        ctx.shadowColor = '#d946ef'; ctx.shadowBlur = 20;
+        ctx.beginPath();
+        ctx.arc(map.portal.x - game.camera.x, map.portal.y - game.camera.y, map.portal.radius + Math.sin(game.frame*0.1)*5, 0, Math.PI*2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+    }
+
+    // 4. Objetos y Entidades
+    items.forEach(i => i.draw());
+    entities.forEach(e => e.draw());
+    player.draw();
+    
+    // Dibujar jugadores remotos en multijugador
+    if (isMultiplayer) drawRemotePlayers();
+    
+    bullets.forEach(b => b.draw());
+    EffectSys.updateAndDraw();
+
+    // 5. Dibujar Muros (con "Top" para dar profundidad 3D falsa)
+    map.walls.forEach(w => {
+        if(w.x > game.camera.x - C.TILE && w.x < game.camera.x + canvas.width &&
+           w.y > game.camera.y - C.TILE && w.y < game.camera.y + canvas.height) {
+            let sx = w.x - game.camera.x; let sy = w.y - game.camera.y;
+            ctx.fillStyle = '#0f172a'; // Side
+            ctx.fillRect(sx, sy, w.w, w.h);
+            ctx.fillStyle = C.COLORS.wall; // Top
+            ctx.fillRect(sx, sy - 10, w.w, w.h);
+            ctx.strokeStyle = '#020617'; ctx.lineWidth=2;
+            ctx.strokeRect(sx, sy - 10, w.w, w.h);
+        }
+    });
+
+    // 6. Sistema de Iluminación Dinámica
+    lightCtx.fillStyle = '#020617'; // Oscuridad global
+    lightCtx.fillRect(0, 0, lightCanvas.width, lightCanvas.height);
+    
+    // Función para "recortar" luz
+    const addLight = (x, y, radius, intensity=1.0) => {
+        let grad = lightCtx.createRadialGradient(x, y, 0, x, y, radius);
+        grad.addColorStop(0, `rgba(255,255,255,${intensity})`);
+        grad.addColorStop(1, 'rgba(255,255,255,0)');
+        lightCtx.globalCompositeOperation = 'screen';
+        lightCtx.fillStyle = grad;
+        lightCtx.beginPath(); lightCtx.arc(x, y, radius, 0, Math.PI*2); lightCtx.fill();
+        lightCtx.globalCompositeOperation = 'source-over';
+    };
+
+    // Luz del jugador
+    addLight(player.x + player.w/2 - game.camera.x, player.y + player.h/2 - game.camera.y, 400);
+    // Luz de balas/explosiones
+    bullets.forEach(b => addLight(b.x - game.camera.x, b.y - game.camera.y, 80, 0.5));
+    if(map.portal) addLight(map.portal.x - game.camera.x, map.portal.y - game.camera.y, 200, 0.8);
+}
+
+function drawMinimap() {
+    mapCtx.fillStyle = '#000';
+    mapCtx.fillRect(0, 0, mapCanvas.width, mapCanvas.height);
+    
+    let scale = 0.05;
+    let cx = mapCanvas.width/2; let cy = mapCanvas.height/2;
+
+    map.floors.forEach(f => {
+        let mx = cx + (f.x - player.x) * scale;
+        let my = cy + (f.y - player.y) * scale;
+        mapCtx.fillStyle = '#1e293b';
+        mapCtx.fillRect(mx, my, f.w*scale+1, f.h*scale+1);
+    });
+
+    mapCtx.fillStyle = '#3b82f6';
+    mapCtx.fillRect(cx - 2, cy - 2, 4, 4);
+    
+    if(map.portal) {
+        mapCtx.fillStyle = '#a855f7';
+        let px = cx + (map.portal.x - player.x) * scale;
+        let py = cy + (map.portal.y - player.y) * scale;
+        mapCtx.beginPath(); mapCtx.arc(px, py, 3, 0, Math.PI*2); mapCtx.fill();
+    }
+}
+
+function updateUI() {
+    document.getElementById('health-bar').style.width = `${(player.hp / player.maxHp) * 100}%`;
+    document.getElementById('health-text').innerText = `VIDA ${Math.ceil(player.hp)}/${player.maxHp}`;
+    
+    document.getElementById('shield-bar').style.width = `${(player.shield / player.maxShield) * 100}%`;
+    document.getElementById('shield-text').innerText = `ESCUDO ${Math.floor(player.shield)}/${player.maxShield}`;
+    
+    document.getElementById('energy-bar').style.width = `${(player.energy / player.maxEnergy) * 100}%`;
+    document.getElementById('energy-text').innerText = `ENERGÍA ${Math.floor(player.energy)}/${player.maxEnergy}`;
+    
+    document.getElementById('coin-count').innerText = game.coins;
+    document.getElementById('level-display').innerText = game.level;
+
+    let w = player.weapon;
+    document.getElementById('weapon-name').innerText = w.name;
+    document.getElementById('weapon-name').style.color = w.color;
+    document.getElementById('ammo-count').innerText = w.cost === 0 ? '∞' : `-${w.cost}⚡`;
+}
+
+// ==========================================
+// SISTEMA DE TIENDA Y NIVELES
+// ==========================================
+function showShop() {
+    game.state = 'SHOP';
+    document.getElementById('shop-screen').classList.remove('hidden');
+    document.getElementById('shop-coins').innerText = game.coins;
+    
+    // Generar precios dinámicos
+    let container = document.getElementById('shop-container');
+    container.innerHTML = '';
+    
+    // Seleccionar 3 mejoras al azar
+    let available = [...UPGRADES].sort(() => 0.5 - Math.random()).slice(0, 3);
+    
+    available.forEach(upg => {
+        let price = Math.floor(upg.basePrice * Math.pow(1.2, game.level - 1));
+        
+        let div = document.createElement('div');
+        div.className = 'shop-item';
+        div.innerHTML = `
+            <h3>${upg.name}</h3>
+            <p>${upg.desc}</p>
+            <div class="shop-price">🪙 ${price}</div>
+            <button class="shop-btn">COMPRAR</button>
+        `;
+        div.querySelector('button').onclick = () => {
+            if (game.coins >= price) {
+                game.coins -= price;
+                upg.apply(player);
+                AudioSys.powerup();
+                div.style.opacity = '0.5';
+                div.querySelector('button').disabled = true;
+                div.querySelector('button').innerText = 'COMPRADO';
+                document.getElementById('shop-coins').innerText = game.coins;
+                updateUI();
+            } else {
+                AudioSys.hit(); // Sonido error
+            }
+        };
+        container.appendChild(div);
+    });
+}
+
+function nextLevel() {
+    game.level++;
+    document.getElementById('shop-screen').classList.add('hidden');
+    game.state = 'PLAYING';
+    loadLevel();
+}
+
+// Prevent spacebar scrolling
+window.addEventListener('keydown', function(e) {
+  if(e.keyCode == 32 && e.target == document.body) {
+    e.preventDefault();
+  }
+});
+
+// ==========================================
+// SOCKET.IO MULTIPLAYER SYSTEM
+// ==========================================
+
+let socket = null;
+let currentRoom = null;
+let remotePlayersSockets = {}; // Otros jugadores en la sala
+let isMultiplayer = false;
+
+// Conectar a servidor Socket.IO
+function connectToServer(serverURL = SERVER_URL) {
+    const scriptTag = document.createElement('script');
+    scriptTag.src = serverURL + '/socket.io/socket.io.js';
+    scriptTag.onload = () => {
+        socket = io(serverURL);
+        
+        socket.on('connect', () => {
+            console.log('✅ Conectado al servidor:', socket.id);
+        });
+
+        socket.on('game-joined', (data) => {
+            console.log('🎮 Unido a sala:', data.roomCode);
+            currentRoom = data.roomCode;
+            isMultiplayer = true;
+            // El juego ya está iniciado, ahora con multiplicador
+        });
+
+        socket.on('player-joined', (data) => {
+            console.log('👥 Otro jugador se unió:', data.playerName);
+            remotePlayersSockets[data.playerId] = {
+                name: data.playerName,
+                x: 0,
+                y: 0,
+                vx: 0,
+                vy: 0,
+                angle: 0,
+                ...data.playerData
+            };
+            // Mostrar notificación
+            console.log(`${data.playerName} se unió a la sala`);
+        });
+
+        socket.on('player-moved', (data) => {
+            if (remotePlayersSockets[data.playerId]) {
+                remotePlayersSockets[data.playerId].x = data.x;
+                remotePlayersSockets[data.playerId].y = data.y;
+                remotePlayersSockets[data.playerId].vx = data.vx;
+                remotePlayersSockets[data.playerId].vy = data.vy;
+                remotePlayersSockets[data.playerId].angle = data.angle;
+            }
+        });
+
+        socket.on('bullet-fired', (data) => {
+            // Los disparos de otros jugadores se sincronizan
+            // El servidor mantiene registro de balas
+        });
+
+        socket.on('player-state-changed', (data) => {
+            if (remotePlayersSockets[data.playerId]) {
+                if (data.hp !== undefined) remotePlayersSockets[data.playerId].hp = data.hp;
+                if (data.shield !== undefined) remotePlayersSockets[data.playerId].shield = data.shield;
+                if (data.energy !== undefined) remotePlayersSockets[data.playerId].energy = data.energy;
+                if (data.weapon) remotePlayersSockets[data.playerId].weapon = data.weapon;
+                if (data.coins !== undefined) remotePlayersSockets[data.playerId].coins = data.coins;
+                if (data.kills !== undefined) remotePlayersSockets[data.playerId].kills = data.kills;
+            }
+        });
+
+        socket.on('level-changed', (data) => {
+            console.log('🎯 Nuevo nivel:', data.level);
+            game.level = data.level;
+            // Usar la semilla del servidor para que todos generen el mismo mapa
+            if (data.seed) {
+                MapGen.seed = data.seed;
+            }
+        });
+
+        socket.on('player-died', (data) => {
+            console.log(`💀 ${data.playerName} ha muerto (Nivel ${data.level}, ${data.kills} derrotas)`);
+            if (remotePlayersSockets[data.playerId]) {
+                remotePlayersSockets[data.playerId].alive = false;
+            }
+        });
+
+        socket.on('player-left', (data) => {
+            console.log(`❌ ${data.playerName} abandonó la sala`);
+            delete remotePlayersSockets[data.playerId];
+        });
+
+        socket.on('chat-message', (data) => {
+            console.log(`[${data.playerName}]: ${data.message}`);
+        });
+
+        socket.on('disconnect', () => {
+            console.log('❌ Desconectado del servidor');
+            isMultiplayer = false;
+        });
+    };
+    document.head.appendChild(scriptTag);
+}
+
+// Unirse a una sala de juego
+function joinGameRoom(playerName = 'Jugador') {
+    if (!socket) {
+        connectToServer();
+        setTimeout(() => {
+            socket.emit('join-game', { 
+                roomCode: 'room-' + Math.floor(Math.random() * 10000),
+                playerName 
+            });
+        }, 500);
+    } else {
+        socket.emit('join-game', { 
+            roomCode: 'room-' + Math.floor(Math.random() * 10000),
+            playerName 
+        });
+    }
+}
+
+// Sincronizar movimiento del jugador
+function syncPlayerPosition() {
+    if (socket && isMultiplayer && player) {
+        socket.emit('player-move', {
+            roomCode: currentRoom,
+            x: player.x,
+            y: player.y,
+            vx: player.vx,
+            vy: player.vy,
+            angle: player.angle
+        });
+    }
+}
+
+// Sincronizar disparo
+function syncPlayerShoot(bulletData) {
+    if (socket && isMultiplayer) {
+        socket.emit('player-shoot', {
+            roomCode: currentRoom,
+            bulletData
+        });
+    }
+}
+
+// Sincronizar estado del jugador
+function syncPlayerState() {
+    if (socket && isMultiplayer && player) {
+        socket.emit('player-update', {
+            roomCode: currentRoom,
+            hp: player.hp,
+            shield: player.shield,
+            energy: player.energy,
+            weapon: player.weapon.name,
+            coins: game.coins,
+            kills: game.kills
+        });
+    }
+}
+
+// Dibujar otros jugadores remotos
+function drawRemotePlayers() {
+    for (const [playerId, remotePlayer] of Object.entries(remotePlayersSockets)) {
+        if (!remotePlayer.alive) continue;
+        
+        // Dibujar al jugador remoto
+        ctx.fillStyle = '#ef4444'; // Color rojo para jugadores remotos
+        ctx.fillRect(
+            remotePlayer.x - game.camera.x,
+            remotePlayer.y - game.camera.y,
+            C.PLAYER_SIZE,
+            C.PLAYER_SIZE
+        );
+        
+        // Nombre arriba del jugador
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(
+            remotePlayer.name,
+            remotePlayer.x - game.camera.x + C.PLAYER_SIZE / 2,
+            remotePlayer.y - game.camera.y - 10
+        );
+        
+        // Barra de salud
+        const barWidth = 40;
+        const barHeight = 4;
+        const healthPercent = remotePlayer.hp / remotePlayer.maxHp;
+        
+        ctx.fillStyle = '#333';
+        ctx.fillRect(
+            remotePlayer.x - game.camera.x + C.PLAYER_SIZE / 2 - barWidth / 2,
+            remotePlayer.y - game.camera.y - 20,
+            barWidth,
+            barHeight
+        );
+        ctx.fillStyle = '#ef4444';
+        ctx.fillRect(
+            remotePlayer.x - game.camera.x + C.PLAYER_SIZE / 2 - barWidth / 2,
+            remotePlayer.y - game.camera.y - 20,
+            barWidth * healthPercent,
+            barHeight
+        );
+    }
+}
+
+// Mostrar pantalla de bienvenida multijugador
+function showMultiplayerJoin() {
+    document.getElementById('menu-screen').classList.add('hidden');
+    document.getElementById('multiplayer-join-screen').classList.remove('hidden');
+    document.getElementById('player-name-input').focus();
+}
+
+// Iniciar conexión multijugador
+function startMultiplayer() {
+    const playerName = document.getElementById('player-name-input').value.trim();
+    
+    if (!playerName) {
+        alert('Por favor ingresa tu nombre');
+        return;
+    }
+
+    // Conectar y unirse a una sala (usa SERVER_URL del config.js)
+    connectToServer();
+    
+    setTimeout(() => {
+        if (socket && socket.connected) {
+            socket.emit('join-game', {
+                roomCode: 'main-lobby',
+                playerName: playerName
+            });
+            
+            // Mostrar status
+            document.getElementById('multiplayer-join-screen').classList.add('hidden');
+            document.getElementById('multiplayer-status').style.display = 'block';
+            document.getElementById('mp-status-text').textContent = 'Conectado';
+            document.getElementById('mp-player-count').textContent = '1';
+            
+            // Iniciar juego
+            initGame();
+        } else {
+            alert('No se pudo conectar al servidor. Asegúrate que esté corriendo en ' + serverURL);
+        }
+    }, 1000);
+}
+
+// Volver al menú
+function backToMenu() {
+    document.getElementById('multiplayer-join-screen').classList.add('hidden');
+    document.getElementById('menu-screen').classList.remove('hidden');
+}
+
+// Actualizar status de multijugador
+function updateMultiplayerStatus() {
+    if (isMultiplayer && socket && currentRoom) {
+        document.getElementById('mp-room-code').textContent = currentRoom;
+        document.getElementById('mp-player-count').textContent = Object.keys(remotePlayersSockets).length + 1;
+    }
+}
+
+</script>
+</body>
+</html>
