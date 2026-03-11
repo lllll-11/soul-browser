@@ -220,6 +220,27 @@
         <div style="font-size: 10px; color: #94a3b8; margin-top: 5px;">Sala: <span id="mp-room-code">---</span></div>
         <div style="font-size: 10px; color: #94a3b8;">Jugadores: <span id="mp-player-count">1</span></div>
     </div>
+
+    <!-- LOBBY SCREEN -->
+    <div id="lobby-screen" class="overlay hidden">
+        <h1 class="title" style="font-size: 50px;">SALA DE ESPERA</h1>
+        <div style="font-size: 20px; color: #94a3b8; margin-bottom: 40px;">Esperando a otros jugadores...</div>
+        
+        <div id="lobby-players-container" style="background: rgba(0,0,0,0.5); border: 2px solid var(--accent); border-radius: 12px; padding: 20px; margin-bottom: 40px; min-width: 400px; max-height: 300px; overflow-y: auto;">
+            <div id="lobby-players-list" style="display: flex; flex-direction: column; gap: 10px;">
+                <!-- Jugadores se agregan aquí -->
+            </div>
+        </div>
+
+        <div id="lobby-ready-status" style="font-size: 18px; color: #10b981; margin-bottom: 30px; font-weight: bold;">
+            ✅ Jugadores listos: <span id="lobby-ready-count">1</span> / <span id="lobby-total-count">1</span>
+        </div>
+
+        <button id="lobby-start-btn" class="btn" onclick="startGameFromLobby()" style="opacity: 0.5; cursor: not-allowed;">
+            INICIAR PARTIDA (Espera más jugadores)
+        </button>
+        <button class="btn btn-red" onclick="leaveLobby()">ABANDONAR SALA</button>
+    </div>
 </div>
 
 <script src="config.js"></script>
@@ -1413,6 +1434,11 @@ function connectToServer(serverURL = SERVER_URL) {
             };
             // Mostrar notificación
             console.log(`${data.playerName} se unió a la sala`);
+            
+            // Actualizar lobby si estamos en él
+            if (!document.getElementById('lobby-screen').classList.contains('hidden')) {
+                updateLobbyDisplay();
+            }
         });
 
         socket.on('player-moved', (data) => {
@@ -1447,6 +1473,14 @@ function connectToServer(serverURL = SERVER_URL) {
             // Usar la semilla del servidor para que todos generen el mismo mapa
             if (data.seed) {
                 MapGen.seed = data.seed;
+            }
+        });
+
+        socket.on('game-started', (data) => {
+            console.log('🎮 ¡La partida ha iniciado!');
+            if (!document.getElementById('lobby-screen').classList.contains('hidden')) {
+                document.getElementById('lobby-screen').classList.add('hidden');
+                initGame();
             }
         });
 
@@ -1593,6 +1627,9 @@ function startMultiplayer() {
         return;
     }
 
+    // Guardar nombre
+    localStorage.setItem('playerName', playerName);
+
     // Conectar y unirse a una sala (usa SERVER_URL del config.js)
     connectToServer();
     
@@ -1603,18 +1640,88 @@ function startMultiplayer() {
                 playerName: playerName
             });
             
-            // Mostrar status
+            // Mostrar status y lobby
             document.getElementById('multiplayer-join-screen').classList.add('hidden');
             document.getElementById('multiplayer-status').style.display = 'block';
             document.getElementById('mp-status-text').textContent = 'Conectado';
             document.getElementById('mp-player-count').textContent = '1';
             
-            // Iniciar juego
-            initGame();
+            // Mostrar pantalla de lobby en lugar de iniciar directamente
+            document.getElementById('menu-screen').classList.add('hidden');
+            document.getElementById('lobby-screen').classList.remove('hidden');
+            updateLobbyDisplay();
         } else {
-            alert('No se pudo conectar al servidor. Asegúrate que esté corriendo en ' + serverURL);
+            alert('No se pudo conectar al servidor. Asegúrate que esté corriendo en ' + SERVER_URL);
         }
     }, 1000);
+}
+
+// Actualizar pantalla del lobby
+function updateLobbyDisplay() {
+    const playersList = document.getElementById('lobby-players-list');
+    playersList.innerHTML = '';
+    
+    // Agregar jugador local
+    playersList.innerHTML += `
+        <div style="background: rgba(59, 130, 246, 0.3); border: 2px solid var(--accent); padding: 10px; border-radius: 8px; color: white;">
+            👤 ${localStorage.getItem('playerName') || 'Tú'} <span style="float: right; color: #10b981;">✓ Listo</span>
+        </div>
+    `;
+    
+    // Agregar jugadores remotos
+    const remoteCount = Object.keys(remotePlayersSockets).length;
+    Object.entries(remotePlayersSockets).forEach(([id, player]) => {
+        playersList.innerHTML += `
+            <div style="background: rgba(239, 68, 68, 0.3); border: 2px solid #ef4444; padding: 10px; border-radius: 8px; color: white;">
+                👤 ${player.name} <span style="float: right; color: #94a3b8;">Esperando...</span>
+            </div>
+        `;
+    });
+    
+    const totalPlayers = 1 + remoteCount;
+    document.getElementById('lobby-total-count').textContent = totalPlayers;
+    document.getElementById('lobby-ready-count').textContent = totalPlayers;
+    
+    // Habilitar botón si hay al menos 2 jugadores
+    const startBtn = document.getElementById('lobby-start-btn');
+    if (totalPlayers >= 2) {
+        startBtn.style.opacity = '1';
+        startBtn.style.cursor = 'pointer';
+        startBtn.textContent = '▶ INICIAR PARTIDA AHORA';
+    } else {
+        startBtn.style.opacity = '0.5';
+        startBtn.style.cursor = 'not-allowed';
+        startBtn.textContent = 'INICIAR PARTIDA (Espera más jugadores)';
+    }
+}
+
+// Iniciar juego desde el lobby
+function startGameFromLobby() {
+    const totalPlayers = 1 + Object.keys(remotePlayersSockets).length;
+    if (totalPlayers < 2) {
+        alert('Necesitas al menos 2 jugadores');
+        return;
+    }
+    
+    // Notificar al servidor
+    if (socket && isMultiplayer) {
+        socket.emit('start-game', {
+            roomCode: currentRoom
+        });
+    }
+    
+    // Iniciar juego
+    document.getElementById('lobby-screen').classList.add('hidden');
+    initGame();
+}
+
+// Abandonar lobby
+function leaveLobby() {
+    if (socket) socket.disconnect();
+    document.getElementById('lobby-screen').classList.add('hidden');
+    document.getElementById('menu-screen').classList.remove('hidden');
+    remotePlayersSockets = {};
+    isMultiplayer = false;
 }
 
 // Volver al menú

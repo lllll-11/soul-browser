@@ -155,6 +155,24 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Evento: Iniciar partida
+    socket.on('start-game', (data) => {
+        const { roomCode } = data;
+        
+        if (games[roomCode]) {
+            games[roomCode].state = 'PLAYING';
+            games[roomCode].seed = Math.random();
+            
+            // Notificar a todos en la sala
+            io.to(roomCode).emit('game-started', {
+                roomCode,
+                seed: games[roomCode].seed
+            });
+            
+            console.log(`[SALA ${roomCode}] ¡Partida iniciada! ${Object.keys(games[roomCode].players).length} jugadores`);
+        }
+    });
+
     // Evento: Cambio de nivel
     socket.on('level-change', (data) => {
         const { roomCode, level } = data;
