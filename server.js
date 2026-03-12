@@ -114,22 +114,20 @@ io.on('connection', (socket) => {
 
     // Evento: Disparo del jugador
     socket.on('player-shoot', (data) => {
-        const { roomCode, bulletData } = data;
+        const { roomCode } = data;
         
         if (games[roomCode]) {
-            const game = games[roomCode];
-            
-            // Agregar bala al servidor
-            game.bullets.push({
-                id: `${socket.id}-${Date.now()}`,
+            // Broadcast el disparo a los otros jugadores
+            socket.to(roomCode).emit('bullet-fired', {
                 playerId: socket.id,
-                ...bulletData
-            });
-
-            // Broadcast a todos en la sala
-            io.to(roomCode).emit('bullet-fired', {
-                playerId: socket.id,
-                bullet: bulletData
+                x: data.x,
+                y: data.y,
+                angle: data.angle,
+                vx: data.vx,
+                vy: data.vy,
+                dmg: data.dmg,
+                color: data.color,
+                speed: data.speed
             });
         }
     });
