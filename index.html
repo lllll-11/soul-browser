@@ -2082,27 +2082,41 @@ function updateWarmupPlayersList() {
 
 // Iniciar partida real desde warmup
 function startRealGame() {
+    console.warn('🔴 [WARMUP] startRealGame() fue llamada');
+    
     const totalPlayers = 1 + Object.keys(remotePlayersSockets).length;
+    console.warn('🔴 Total jugadores:', totalPlayers);
+    
     if (totalPlayers < 2) {
         alert('Necesitas al menos 2 jugadores');
+        console.error('❌ Error: Menos de 2 jugadores');
         return;
     }
     
     if (!socket || !currentRoom) {
         alert('Error: No conectado al servidor');
+        console.error('❌ Error: socket=', socket, 'currentRoom=', currentRoom);
         return;
     }
     
     const startBtn = document.getElementById('warmup-start-btn');
-    startBtn.disabled = true;
-    startBtn.textContent = '⏳ Iniciando...';
+    console.warn('🔴 Botón encontrado:', !!startBtn);
+    
+    if (startBtn) {
+        startBtn.disabled = true;
+        startBtn.textContent = '⏳ Iniciando...';
+    }
+    
+    console.warn('🔴 [WARMUP] Enviando start-game al servidor');
+    console.warn('🔴 roomCode:', currentRoom);
+    console.warn('🔴 socket.id:', socket.id);
     
     // NO OCULTAMOS LA PANTALLA AQUÍ - dejar que game-started lo haga
     
-    console.log('📤 Enviando start-game al servidor para sala:', currentRoom);
     socket.emit('start-game', {
         roomCode: currentRoom
     });
+    console.warn('🔴 [WARMUP] Evento enviado, esperando respuesta...');
     
     // Si después de 5 segundos no recibimos game-started, reintentar
     window.gameStartTimeout = setTimeout(() => {
