@@ -1711,12 +1711,13 @@ function connectToServer(serverURL = SERVER_URL) {
         });
 
         socket.on('warmup-started', (data) => {
-            console.log('🏋️ ¡Warmup iniciado! (respuesta del servidor)');
+            console.log('[WARMUP-STARTED] Recibido del servidor');
+            console.log('[WARMUP-STARTED] Total jugadores en servidor:', data.totalPlayers);
+            console.log('[WARMUP-STARTED] Jugadores locales:', 1 + Object.keys(remotePlayersSockets).length);
             
             // Cancelar fallback si estaba activo
             if (window.warmupTimeout) {
                 clearTimeout(window.warmupTimeout);
-                console.log('✅ Fallback cancelado - servidor respondió');
             }
             
             startWarmup();

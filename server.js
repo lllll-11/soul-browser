@@ -157,17 +157,26 @@ io.on('connection', (socket) => {
     // Evento: Entrar a warmup
     socket.on('enter-warmup', (data) => {
         const { roomCode } = data;
+        console.log(`[WARMUP] Recibido enter-warmup de ${socket.id} para sala ${roomCode}`);
         
         if (games[roomCode]) {
+            const playerCount = Object.keys(games[roomCode].players).length;
+            console.log(`[WARMUP] Sala tiene ${playerCount} jugadores:`, Object.keys(games[roomCode].players));
+            
             games[roomCode].state = 'WARMUP';
             
-            // Notificar a todos en la sala
+            // Notificar a TODOS en la sala (incluyendo quien presionó)
+            console.log(`[WARMUP] Emitiendo warmup-started a ${playerCount} jugadores`);
             io.to(roomCode).emit('warmup-started', {
                 roomCode,
-                warmupMode: true
+                warmupMode: true,
+                totalPlayers: playerCount
             });
+            console.log(`[WARMUP] ✅ Emitido`);
             
-            console.log(`[SALA ${roomCode}] Warmup iniciado`);
+            console.log(`[SALA ${roomCode}] Warmup iniciado con ${playerCount} jugadores`);
+        } else {
+            console.log(`[ERROR] Sala ${roomCode} no existe`);
         }
     });
 
