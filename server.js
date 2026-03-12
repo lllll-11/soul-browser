@@ -22,6 +22,7 @@ const games = {}; // Salas de juego { roomCode: { players: {}, level, state } }
 const players = {}; // Conexiones de jugadores activos
 
 const PORT = process.env.PORT || 3000;
+const SERVER_VERSION = '2.0.1'; // Para verificar deploy en Render
 
 // ==========================================
 // SOCKET.IO EVENT HANDLERS
@@ -96,11 +97,16 @@ io.on('connection', (socket) => {
         }));
         
         console.log(`[JOIN-GAME] Emitiendo players-list a TODOS en ${roomCode}`);
-        io.to(roomCode).emit('players-list-updated', {
+        const playersPayload = {
             roomCode,
             players: updatedPlayers,
             totalPlayers: playerList.length
-        });
+        };
+        io.to(roomCode).emit('players-list-updated', playersPayload);
+        // Redundancia: emitir directo a cada socket por si io.to() falla
+        for (const pid of Object.keys(game.players)) {
+            io.to(pid).emit('players-list-updated', playersPayload);
+        }
 
         // Syncronizar estado completo con TODOS
         for (const [playerId, playerData] of Object.entries(game.players)) {
@@ -189,11 +195,16 @@ io.on('connection', (socket) => {
             
             // Notificar a TODOS en la sala (incluyendo quien presionó)
             console.log(`[WARMUP] Emitiendo warmup-started a ${playerCount} jugadores`);
-            io.to(roomCode).emit('warmup-started', {
+            const warmupPayload = {
                 roomCode,
                 warmupMode: true,
                 totalPlayers: playerCount
-            });
+            };
+            io.to(roomCode).emit('warmup-started', warmupPayload);
+            // Redundancia: emitir directo a cada socket
+            for (const pid of Object.keys(games[roomCode].players)) {
+                io.to(pid).emit('warmup-started', warmupPayload);
+            }
             console.log(`[WARMUP] ✅ Emitido`);
             
             console.log(`[SALA ${roomCode}] Warmup iniciado con ${playerCount} jugadores`);
@@ -226,11 +237,16 @@ io.on('connection', (socket) => {
         console.log(`[SALA ${roomCode}] Emitiendo game-started a ${Object.keys(games[roomCode].players).length} jugadores`);
         
         // Notificar a todos en la sala
-        io.to(roomCode).emit('game-started', {
+        const startPayload = {
             roomCode,
             seed: games[roomCode].seed,
             level: games[roomCode].level
-        });
+        };
+        io.to(roomCode).emit('game-started', startPayload);
+        // Redundancia: emitir directo a cada socket
+        for (const pid of Object.keys(games[roomCode].players)) {
+            io.to(pid).emit('game-started', startPayload);
+        }
         
         console.log(`[SALA ${roomCode}] ¡Partida iniciada! ${Object.keys(games[roomCode].players).length} jugadores en nivel ${games[roomCode].level}`);
     });
@@ -326,6 +342,10 @@ io.on('connection', (socket) => {
 // ==========================================
 // RUTAS HTTP
 // ==========================================
+
+app.get('/api/version', (req, res) => {
+    res.json({ version: SERVER_VERSION, timestamp: new Date().toISOString() });
+});
 
 app.get('/api/stats', (req, res) => {
     const stats = {
