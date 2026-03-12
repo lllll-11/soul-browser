@@ -33,6 +33,7 @@ io.on('connection', (socket) => {
     // Evento: Crear o unirse a sala
     socket.on('join-game', (data) => {
         const { roomCode, playerName } = data;
+        console.log(`[JOIN-GAME] ${playerName} intenta unirse a ${roomCode}`);
         
         // Crear sala si no existe
         if (!games[roomCode]) {
@@ -45,6 +46,7 @@ io.on('connection', (socket) => {
                 frame: 0,
                 seed: Math.random()
             };
+            console.log(`[JOIN-GAME] Sala creada: ${roomCode}`);
         }
 
         // Registrar jugador
@@ -74,8 +76,12 @@ io.on('connection', (socket) => {
         
         // Unir socket a la sala
         socket.join(roomCode);
+        console.log(`[JOIN-GAME] Socket unido a sala ${roomCode}`);
 
         // Notificar al cliente con los jugadores existentes
+        const playerList = Object.keys(game.players);
+        console.log(`[JOIN-GAME] Enviando game-joined a ${playerName}. Sala tiene ${playerList.length} jugadores`);
+        
         socket.emit('game-joined', {
             roomCode,
             playerId: socket.id,
@@ -83,14 +89,17 @@ io.on('connection', (socket) => {
             existingPlayers: game.players
         });
 
-        // Notificar a otros jugadores
+        // Notificar a otros jugadores que se unió este jugador
+        const otherPlayers = Object.keys(game.players).filter(id => id !== socket.id);
+        console.log(`[JOIN-GAME] Emitiendo player-joined a ${otherPlayers.length} otros jugadores`);
+        
         socket.to(roomCode).emit('player-joined', {
             playerId: socket.id,
             playerName,
             playerData: game.players[socket.id]
         });
 
-        console.log(`[SALA ${roomCode}] ${playerName} se unió. Total: ${Object.keys(game.players).length}`);
+        console.log(`[SALA ${roomCode}] ${playerName} unido. Total: ${playerList.length}. Jugadores: ${playerList.join(', ')}`);
     });
 
     // Evento: Actualizar posición del jugador
