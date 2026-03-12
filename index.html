@@ -855,8 +855,14 @@ class Player extends Entity {
                     canInteract = true;
                     if (game.keys['e']) {
                         if (!this.weapons.includes(item.weapon)) {
-                            this.weapons.push(item.weapon);
-                            this.currentWeaponIdx = this.weapons.length - 1;
+                            // Máximo 3 armas
+                            if (this.weapons.length >= 3) {
+                                // Reemplazar arma actual
+                                this.weapons[this.currentWeaponIdx] = item.weapon;
+                            } else {
+                                this.weapons.push(item.weapon);
+                                this.currentWeaponIdx = this.weapons.length - 1;
+                            }
                         }
                         item.dead = true;
                         AudioSys.powerup();
@@ -1327,8 +1333,19 @@ function loadLevel() {
     
     entities = []; bullets = []; remoteBullets = []; particles = []; items = [];
     
-    // NIVEL 0 / Countdown: Sin enemigos (sala de espera)
+    // NIVEL 0 / Countdown: Sin enemigos, pero con armas para elegir
     if (countdownState.active) {
+        // Spawnear todas las armas disponibles en círculo para que el jugador elija
+        items = [];
+        let weaponsArray = Object.values(WEAPONS);
+        let weaponCount = weaponsArray.length;
+        for (let i = 0; i < weaponCount; i++) {
+            let angle = (i / weaponCount) * Math.PI * 2;
+            let radius = C.TILE * 4;
+            let wx = player.x + Math.cos(angle) * radius;
+            let wy = player.y + Math.sin(angle) * radius;
+            items.push(new Item(wx, wy, 'weapon', null, weaponsArray[i]));
+        }
         updateUI();
         drawMinimap();
         return;
@@ -1617,26 +1634,9 @@ function draw() {
         }
     });
 
-    // 6. Sistema de Iluminación Dinámica
-    lightCtx.fillStyle = '#020617'; // Oscuridad global
+    // 6. Iluminación desactivada - mapa completamente visible
+    lightCtx.fillStyle = 'rgba(255,255,255,1)';
     lightCtx.fillRect(0, 0, lightCanvas.width, lightCanvas.height);
-    
-    // Función para "recortar" luz
-    const addLight = (x, y, radius, intensity=1.0) => {
-        let grad = lightCtx.createRadialGradient(x, y, 0, x, y, radius);
-        grad.addColorStop(0, `rgba(255,255,255,${intensity})`);
-        grad.addColorStop(1, 'rgba(255,255,255,0)');
-        lightCtx.globalCompositeOperation = 'screen';
-        lightCtx.fillStyle = grad;
-        lightCtx.beginPath(); lightCtx.arc(x, y, radius, 0, Math.PI*2); lightCtx.fill();
-        lightCtx.globalCompositeOperation = 'source-over';
-    };
-
-    // Luz del jugador
-    addLight(player.x + player.w/2 - game.camera.x, player.y + player.h/2 - game.camera.y, 400);
-    // Luz de balas/explosiones
-    bullets.forEach(b => addLight(b.x - game.camera.x, b.y - game.camera.y, 80, 0.5));
-    if(map.portal) addLight(map.portal.x - game.camera.x, map.portal.y - game.camera.y, 200, 0.8);
 
     // COUNTDOWN OVERLAY
     if (countdownState.active && countdownState.timeLeft > 0) {
@@ -1663,12 +1663,23 @@ function draw() {
         // Texto "PREPARÁNDOSE..."
         ctx.font = 'bold 28px monospace';
         ctx.fillStyle = '#94a3b8';
-        ctx.fillText('⚔️ PREPARÁNDOSE PARA EL COMBATE ⚔️', canvas.width/2, canvas.height/2 + 80);
+        ctx.fillText('⚔️ ELIGE TUS ARMAS (MÁX. 3) ⚔️', canvas.width/2, canvas.height/2 + 80);
+        
+        // Instrucción
+        ctx.font = 'bold 20px monospace';
+        ctx.fillStyle = '#64748b';
+        ctx.fillText('Pulsa [E] sobre un arma para recogerla | [Q] cambiar', canvas.width/2, canvas.height/2 + 115);
+        
+        // Armas actuales del jugador
+        ctx.font = 'bold 18px monospace';
+        ctx.fillStyle = '#0ea5e9';
+        let weaponNames = player.weapons.map(w => w.name).join(' | ');
+        ctx.fillText(`Armas: ${weaponNames} (${player.weapons.length}/3)`, canvas.width/2, canvas.height/2 + 150);
         
         // Nivel actual
         ctx.font = 'bold 22px monospace';
         ctx.fillStyle = '#64748b';
-        ctx.fillText(`NIVEL ${game.level}`, canvas.width/2, canvas.height/2 + 120);
+        ctx.fillText(`NIVEL ${game.level}`, canvas.width/2, canvas.height/2 + 185);
         
         ctx.textAlign = 'start';
         ctx.textBaseline = 'alphabetic';
@@ -1790,6 +1801,11 @@ function nextLevel() {
     countdownState.onComplete = () => {
         PatternAI.reset();
         loadLevel();
+        // Teletransportar jugador a esquina segura (lejos de enemigos en centro)
+        let arenaSize = Math.min(30 + Math.floor(game.level * 2), 60);
+        player.x = C.TILE * 3;
+        player.y = C.TILE * 3;
+        player.vx = 0; player.vy = 0;
     };
     
     // Cargar nivel sin enemigos (countdown activo bloquea spawn)
@@ -2015,6 +2031,10 @@ function connectToServer(serverURL = SERVER_URL) {
             countdownState.onComplete = () => {
                 PatternAI.reset();
                 loadLevel();
+                // Teletransportar jugador a esquina segura
+                player.x = C.TILE * 3;
+                player.y = C.TILE * 3;
+                player.vx = 0; player.vy = 0;
             };
             
             // Cargar nivel sin enemigos (countdown activo bloquea spawn)
@@ -2078,6 +2098,10 @@ function connectToServer(serverURL = SERVER_URL) {
                 // Al terminar el countdown, cargar enemigos normalmente
                 PatternAI.reset();
                 loadLevel();
+                // Teletransportar jugador a esquina segura
+                player.x = C.TILE * 3;
+                player.y = C.TILE * 3;
+                player.vx = 0; player.vy = 0;
                 console.log('⚔️ ¡Enemigos spawneados! ¡A luchar!');
             };
             
