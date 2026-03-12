@@ -2119,14 +2119,30 @@ function startRealGame() {
     });
     console.warn('🔴 [WARMUP] Evento enviado, esperando respuesta...');
     
-    // Si después de 5 segundos no recibimos game-started, reintentar
+    // FALLBACK: Si el servidor no responde en 3 segundos, iniciar localmente
     window.gameStartTimeout = setTimeout(() => {
-        console.warn('⚠️ Timeout: No se recibió game-started en 5 segundos, reintentando...');
-        console.log('📤 Reintentando start-game...');
-        socket.emit('start-game', {
-            roomCode: currentRoom
-        });
-    }, 5000);
+        console.warn('⚠️ FALLBACK ACTIVADO: No se recibió game-started en 3 segundos');
+        console.log('🎮 Iniciando juego localmente (sin esperar servidor)');
+        
+        isInWarmup = false;
+        gameMode = 'MULTIPLAYER';
+        game.level = 1;
+        
+        entities = [];
+        bullets = [];
+        remoteBullets = [];
+        items = [];
+        particles = [];
+        
+        document.getElementById('warmup-screen').classList.add('hidden');
+        document.getElementById('warmup-screen').style.display = 'none';
+        
+        loadLevel();
+        game.state = 'PLAYING';
+        updateUI();
+        drawMinimap();
+        console.warn('✅ Partida iniciada por fallback local');
+    }, 3000);
 }
 
 </script>
