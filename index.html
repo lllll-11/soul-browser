@@ -1633,10 +1633,18 @@ function connectToServer(serverURL = SERVER_URL) {
             if (!document.getElementById('lobby-screen').classList.contains('hidden')) {
                 updateLobbyDisplay();
             }
+            
+            // Si la sala ya está en WARMUP, entrar automáticamente
+            if (data.gameState && data.gameState.state === 'WARMUP') {
+                console.log('[AUTO-SYNC] Sala en WARMUP, entrando automáticamente en 500ms');
+                setTimeout(() => startWarmup(), 500);
+            }
         });
 
         socket.on('player-joined', (data) => {
-            console.log('👥 Otro jugador se unió:', data.playerName);
+            console.log('[PLAYER-JOINED] Nuevo jugador:', data.playerName);
+            console.log('[PLAYER-JOINED] Jugadores remotos ahora:', Object.keys(remotePlayersSockets).length + 1);
+            
             remotePlayersSockets[data.playerId] = {
                 name: data.playerName,
                 x: 0,
@@ -1646,16 +1654,16 @@ function connectToServer(serverURL = SERVER_URL) {
                 angle: 0,
                 ...data.playerData
             };
-            // Mostrar notificación
-            console.log(`${data.playerName} se unió a la sala`);
             
             // Actualizar lobby si estamos en él
             if (!document.getElementById('lobby-screen').classList.contains('hidden')) {
+                console.log('[PLAYER-JOINED] Actualizando lobby display');
                 updateLobbyDisplay();
             }
             
             // Actualizar warmup si estamos en él
             if (!document.getElementById('warmup-screen').classList.contains('hidden')) {
+                console.log('[PLAYER-JOINED] Actualizando warmup display');
                 updateWarmupPlayersList();
             }
         });
@@ -2079,6 +2087,9 @@ function updateWarmupDisplay() {
 
 // Actualizar lista de jugadores en warmup
 function updateWarmupPlayersList() {
+    const remoteCount = Object.keys(remotePlayersSockets).length;
+    console.log('[WARMUP-LIST] Actualizando lista - remotos:', remoteCount);
+    
     const playersList = document.getElementById('warmup-players-list');
     playersList.innerHTML = '';
     
