@@ -529,97 +529,73 @@ const MathUtils = {
 const DungeonGen = {
     generate: function(level) {
         map.walls = []; map.floors = []; map.rooms = []; map.portal = null;
-        const GRID_SIZE = 50;
-        let grid = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill('#'));
         
-        let numRooms = Math.min(5 + Math.floor(level * 1.5), 20); // Escala con nivel
-        let rooms = [];
+        // Arena cuadrada que escala con nivel
+        const arenaSize = Math.min(30 + Math.floor(level * 2), 60);
+        let grid = Array(arenaSize).fill().map(() => Array(arenaSize).fill('.'));
         
-        // Crear habitación inicial
-        let startX = Math.floor(GRID_SIZE/2), startY = Math.floor(GRID_SIZE/2);
-        rooms.push(this.carveRoom(grid, startX, startY, 4, 4));
-        
-        // Crear más habitaciones y conectarlas
-        for(let i=1; i<numRooms; i++) {
-            let pRoom = rooms[MathUtils.randInt(0, rooms.length-1)];
-            let dir = MathUtils.randInt(0,3);
-            let dist = MathUtils.randInt(4, 10);
-            let rw = MathUtils.randInt(4, 8), rh = MathUtils.randInt(4, 8);
-            
-            // Jefes en habitaciones enormes
-            if (level % 5 === 0 && i === numRooms -1) { rw = 12; rh = 12; }
-
-            let nx = pRoom.cx, ny = pRoom.cy;
-            if (dir===0) ny -= dist; if (dir===1) nx += dist;
-            if (dir===2) ny += dist; if (dir===3) nx -= dist;
-            
-            // Límite de mapa
-            nx = MathUtils.clamp(nx, rw, GRID_SIZE-rw);
-            ny = MathUtils.clamp(ny, rh, GRID_SIZE-rh);
-            
-            let newRoom = this.carveRoom(grid, nx, ny, rw, rh);
-            rooms.push(newRoom);
-            this.carveCorridor(grid, pRoom.cx, pRoom.cy, newRoom.cx, newRoom.cy);
+        // Perímetro de muros
+        for (let i = 0; i < arenaSize; i++) {
+            grid[0][i] = '#'; grid[arenaSize-1][i] = '#';
+            grid[i][0] = '#'; grid[i][arenaSize-1] = '#';
         }
-
-        map.rooms = rooms;
-
-        // Convertir grid a Hitboxes (AABB) optimizados
-        for(let y=0; y<GRID_SIZE; y++) {
-            for(let x=0; x<GRID_SIZE; x++) {
-                if(grid[y][x] === '.') {
+        
+        // Obstáculos distribuidos (usando PRNG seeded)
+        let numObstacles = Math.min(5 + Math.floor(level * 1.5), 25);
+        for (let o = 0; o < numObstacles; o++) {
+            let type = MathUtils.sRandInt(0, 2);
+            if (type === 0) {
+                // Bloque grande 3x3 o 4x4
+                let bw = MathUtils.sRandInt(2, 4);
+                let bh = MathUtils.sRandInt(2, 4);
+                let bx = MathUtils.sRandInt(3, arenaSize - bw - 3);
+                let by = MathUtils.sRandInt(3, arenaSize - bh - 3);
+                for (let dy = 0; dy < bh; dy++)
+                    for (let dx = 0; dx < bw; dx++)
+                        grid[by+dy][bx+dx] = '#';
+            } else if (type === 1) {
+                // Muro largo horizontal o vertical
+                let horizontal = MathUtils.sRandInt(0, 1);
+                let len = MathUtils.sRandInt(3, 7);
+                let sx = MathUtils.sRandInt(3, arenaSize - len - 3);
+                let sy = MathUtils.sRandInt(3, arenaSize - len - 3);
+                for (let l = 0; l < len; l++) {
+                    if (horizontal) grid[sy][sx+l] = '#';
+                    else grid[sy+l][sx] = '#';
+                }
+            } else {
+                // Pilar pequeño 1x1 o 2x2
+                let px = MathUtils.sRandInt(3, arenaSize - 4);
+                let py = MathUtils.sRandInt(3, arenaSize - 4);
+                grid[py][px] = '#';
+                if (MathUtils.sRandom() > 0.5) {
+                    grid[py+1][px] = '#'; grid[py][px+1] = '#'; grid[py+1][px+1] = '#';
+                }
+            }
+        }
+        
+        // Asegurar centro despejado (zona spawn jugador)
+        let center = Math.floor(arenaSize / 2);
+        for (let dy = -3; dy <= 3; dy++)
+            for (let dx = -3; dx <= 3; dx++)
+                if (grid[center+dy]) grid[center+dy][center+dx] = '.';
+        
+        // Registrar una sola "room" para compatibilidad
+        map.rooms = [{ cx: center, cy: center, w: arenaSize, h: arenaSize,
+                        x: 0, y: 0, rw: arenaSize*C.TILE, rh: arenaSize*C.TILE }];
+        
+        // Convertir grid a hitboxes
+        for (let y = 0; y < arenaSize; y++) {
+            for (let x = 0; x < arenaSize; x++) {
+                if (grid[y][x] === '.') {
                     map.floors.push({ x: x*C.TILE, y: y*C.TILE, w: C.TILE, h: C.TILE });
+                } else {
+                    map.walls.push({ x: x*C.TILE, y: y*C.TILE, w: C.TILE, h: C.TILE });
                 }
             }
         }
         
-        // Crear muros rectangulares (solid hitboxes)
-        for(let y=0; y<GRID_SIZE; y++) {
-            for(let x=0; x<GRID_SIZE; x++) {
-                if(grid[y][x] === '#') {
-                    // Chequear si es un muro visible (adyacente a piso)
-                    let visible = false;
-                    for(let dy=-1; dy<=1; dy++){
-                        for(let dx=-1; dx<=1; dx++){
-                            if(grid[y+dy] && grid[y+dy][x+dx] === '.') visible = true;
-                        }
-                    }
-                    if(visible) {
-                        map.walls.push({ x: x*C.TILE, y: y*C.TILE, w: C.TILE, h: C.TILE });
-                    }
-                }
-            }
-        }
-
-        // Posicionar Jugador en habitación 0
-        return { 
-            px: rooms[0].cx * C.TILE, 
-            py: rooms[0].cy * C.TILE,
-            lastRoom: rooms[rooms.length-1]
-        };
-    },
-
-    carveRoom: (grid, cx, cy, w, h) => {
-        let x1 = Math.floor(cx - w/2), y1 = Math.floor(cy - h/2);
-        let x2 = Math.floor(cx + w/2), y2 = Math.floor(cy + h/2);
-        for(let y=y1; y<=y2; y++) {
-            for(let x=x1; x<=x2; x++) {
-                if(grid[y] && grid[y][x]) grid[y][x] = '.';
-            }
-        }
-        return { cx, cy, w, h, x: x1*C.TILE, y: y1*C.TILE, rw: w*C.TILE, rh: h*C.TILE };
-    },
-
-    carveCorridor: (grid, x1, y1, x2, y2) => {
-        let x = x1, y = y1;
-        // Hacer pasillos de ancho 2 o 3 para evitar atascos
-        const carve = (px, py) => {
-            for(let dy=-1; dy<=1; dy++) for(let dx=-1; dx<=1; dx++) {
-                if(grid[py+dy] && grid[py+dy][px+dx]) grid[py+dy][px+dx] = '.';
-            }
-        };
-        while(x !== x2) { x += Math.sign(x2 - x); carve(x, y); }
-        while(y !== y2) { y += Math.sign(y2 - y); carve(x, y); }
+        return { px: center * C.TILE, py: center * C.TILE, lastRoom: map.rooms[0] };
     }
 };
 
