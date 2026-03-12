@@ -918,9 +918,10 @@ class Enemy extends Entity {
         // Dificultad escala exponencialmente con el nivel
         let level = game.level;
         let scale = 1 + (level * 0.3) + Math.pow(level, 1.4) * 0.05;
-        let speedScale = 1 + Math.min(level * 0.08, 2.0); // Max 3x velocidad
+        let speedScale = 1 + Math.min(level * 0.03, 0.8); // Max 1.8x velocidad (mucho más lento)
         
-        this.speed = ((tier === 'fast') ? 4.5 : (tier === 'tank' ? 2 : 3)) * speedScale;
+        // Velocidades base reducidas
+        this.speed = ((tier === 'fast') ? 2.5 : (tier === 'tank' ? 1.2 : 1.8)) * speedScale;
         
         this.maxHp = (tier === 'boss' ? 1000 : (tier === 'tank' ? 150 : 40)) * scale;
         this.hp = this.maxHp;
@@ -1337,12 +1338,22 @@ function loadLevel() {
     numEnemies = Math.min(numEnemies, 80); // Cap para rendimiento
     let isBossLevel = (level % 5 === 0);
     
-    // A partir de nivel 10, hay tipos especiales con más probabilidad
+    // Centro del mapa para spawn de enemigos
+    let arenaSize = Math.min(30 + Math.floor(level * 2), 60);
+    let centerX = Math.floor(arenaSize / 2) * C.TILE;
+    let centerY = Math.floor(arenaSize / 2) * C.TILE;
+    let spawnRadius = Math.min(arenaSize * C.TILE * 0.3, 1500); // Radio de spawn alrededor del centro
+    
     for(let i=0; i<numEnemies; i++) {
-        // No spawn en primera habitación
-        let room = map.rooms[MathUtils.randInt(1, map.rooms.length-1)];
-        let x = room.x + MathUtils.rand(C.TILE, room.rw - C.TILE);
-        let y = room.y + MathUtils.rand(C.TILE, room.rh - C.TILE);
+        // Spawnear enemigos en el centro del mapa (con dispersión)
+        let angle = Math.random() * Math.PI * 2;
+        let dist = MathUtils.rand(C.TILE * 2, spawnRadius);
+        let x = centerX + Math.cos(angle) * dist;
+        let y = centerY + Math.sin(angle) * dist;
+        
+        // Clamp dentro del mapa
+        x = MathUtils.clamp(x, C.TILE * 2, (arenaSize - 2) * C.TILE);
+        y = MathUtils.clamp(y, C.TILE * 2, (arenaSize - 2) * C.TILE);
         
         let rand = Math.random();
         let type = 'grunt';
@@ -1359,16 +1370,15 @@ function loadLevel() {
     }
     
     if (isBossLevel) {
-        // En niveles altos, boss + acompañantes
-        let room = spawn.lastRoom;
-        entities.push(new Enemy(room.cx*C.TILE, room.cy*C.TILE, 'boss'));
+        // Boss en el centro exacto
+        entities.push(new Enemy(centerX, centerY, 'boss'));
         
         // A partir de nivel 10, el boss viene con escoltas
         if (level >= 10) {
             let escorts = Math.floor(level / 5);
             for (let e = 0; e < Math.min(escorts, 6); e++) {
-                let ox = room.cx*C.TILE + MathUtils.rand(-200, 200);
-                let oy = room.cy*C.TILE + MathUtils.rand(-200, 200);
+                let ox = centerX + MathUtils.rand(-200, 200);
+                let oy = centerY + MathUtils.rand(-200, 200);
                 entities.push(new Enemy(ox, oy, (e % 2 === 0) ? 'tank' : 'shooter'));
             }
         }
@@ -1378,8 +1388,11 @@ function loadLevel() {
     if (game.level % 2 === 0 && !isBossLevel) {
         let weaponsArray = Object.values(WEAPONS);
         let randomW = weaponsArray[MathUtils.randInt(1, weaponsArray.length-1)];
-        let room = map.rooms[MathUtils.randInt(1, map.rooms.length-1)];
-        items.push(new Item(room.cx*C.TILE, room.cy*C.TILE, 'weapon', null, randomW));
+        // Posición aleatoria en la arena
+        let arenaS = Math.min(30 + Math.floor(level * 2), 60);
+        let wx = MathUtils.rand(3, arenaS - 3) * C.TILE;
+        let wy = MathUtils.rand(3, arenaS - 3) * C.TILE;
+        items.push(new Item(wx, wy, 'weapon', null, randomW));
     }
 
     updateUI();
