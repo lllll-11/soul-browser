@@ -179,14 +179,16 @@ io.on('connection', (socket) => {
         if (games[roomCode]) {
             games[roomCode].state = 'PLAYING';
             games[roomCode].seed = Math.random();
+            games[roomCode].level = games[roomCode].level || 1;
             
             // Notificar a todos en la sala
             io.to(roomCode).emit('game-started', {
                 roomCode,
-                seed: games[roomCode].seed
+                seed: games[roomCode].seed,
+                level: games[roomCode].level
             });
             
-            console.log(`[SALA ${roomCode}] ¡Partida iniciada! ${Object.keys(games[roomCode].players).length} jugadores`);
+            console.log(`[SALA ${roomCode}] ¡Partida iniciada! ${Object.keys(games[roomCode].players).length} jugadores en nivel ${games[roomCode].level}`);
         }
     });
 

@@ -243,14 +243,14 @@
     </div>
 
     <!-- WARMUP ROOM SCREEN -->
-    <div id="warmup-screen" class="overlay hidden" style="display: flex !important; flex-direction: column; justify-content: flex-start; padding-top: 10px; background: rgba(2, 6, 23, 0.3) !important; backdrop-filter: none;">
+    <div id="warmup-screen" class="overlay hidden" style="display: none; flex-direction: column; justify-content: flex-start; padding-top: 10px; background: transparent; pointer-events: none; backdrop-filter: none;">
         <!-- Canvas y HUD normales aparecen aquí -->
-        <div id="warmup-header" style="position: absolute; top: 20px; right: 20px; background: rgba(16, 185, 129, 0.3); border: 2px solid #10b981; padding: 15px 20px; border-radius: 8px; color: white; z-index: 50; text-align: center;">
+        <div id="warmup-header" style="position: absolute; top: 20px; right: 20px; background: rgba(16, 185, 129, 0.3); border: 2px solid #10b981; padding: 15px 20px; border-radius: 8px; color: white; z-index: 50; text-align: center; pointer-events: auto;">
             <div style="font-size: 24px; font-weight: bold; color: #10b981;">🏋️ SALA DE CALENTAMIENTO</div>
             <div style="font-size: 14px; color: #94a3b8; margin-top: 10px;">Sin daño entre jugadores</div>
         </div>
         
-        <div id="warmup-controls" style="position: absolute; bottom: 30px; right: 30px; background: rgba(0,0,0,0.8); border: 2px solid #10b981; border-radius: 8px; padding: 15px 20px; color: white; z-index: 50; text-align: center;">
+        <div id="warmup-controls" style="position: absolute; bottom: 30px; right: 30px; background: rgba(0,0,0,0.8); border: 2px solid #10b981; border-radius: 8px; padding: 15px 20px; color: white; z-index: 50; text-align: center; pointer-events: auto;">
             <div style="font-size: 14px; color: #94a3b8; margin-bottom: 10px;">Jugadores listos: <span id="warmup-ready-count">1</span> / <span id="warmup-total-count">1</span></div>
             <button id="warmup-start-btn" class="btn" onclick="startRealGame()" style="opacity: 0.5; cursor: not-allowed; width: 180px;">
                 COMENZAR PARTIDA REAL
@@ -1118,9 +1118,11 @@ const EffectSys = {
 function initGame() {
     AudioSys.init();
     document.getElementById('menu-screen').classList.add('hidden');
+    document.getElementById('lobby-screen').classList.add('hidden');
+    document.getElementById('multiplayer-join-screen').classList.add('hidden');
     
     canvas = document.getElementById('gameCanvas');
-    ctx = canvas.getContext('2d', { alpha: false }); // Optimización
+    ctx = canvas.getContext('2d', { alpha: false });
     lightCanvas = document.getElementById('lightingCanvas');
     lightCtx = lightCanvas.getContext('2d');
     mapCanvas = document.getElementById('minimapCanvas');
@@ -1129,27 +1131,30 @@ function initGame() {
     resize();
     window.addEventListener('resize', resize);
     
-    // Inputs
-    window.addEventListener('keydown', e => {
-        game.keys[e.key.toLowerCase()] = true;
-        if(e.code === 'Space') { game.keys[' '] = true; e.preventDefault(); }
-    });
-    window.addEventListener('keyup', e => {
-        game.keys[e.key.toLowerCase()] = false;
-        if(e.code === 'Space') game.keys[' '] = false;
-    });
-    window.addEventListener('mousedown', e => {
-        if(e.button === 0) game.keys['click'] = true;
-        if(e.button === 2) game.keys['rightclick'] = true;
-    });
-    window.addEventListener('mouseup', e => {
-        if(e.button === 0) game.keys['click'] = false;
-        if(e.button === 2) game.keys['rightclick'] = false;
-    });
-    window.addEventListener('contextmenu', e => e.preventDefault());
-    window.addEventListener('mousemove', e => {
-        game.mouse.x = e.clientX; game.mouse.y = e.clientY;
-    });
+    // Inputs - Solo agregar si no existen aún
+    if (!window.gameInputsInitialized) {
+        window.gameInputsInitialized = true;
+        window.addEventListener('keydown', e => {
+            game.keys[e.key.toLowerCase()] = true;
+            if(e.code === 'Space') { game.keys[' '] = true; e.preventDefault(); }
+        });
+        window.addEventListener('keyup', e => {
+            game.keys[e.key.toLowerCase()] = false;
+            if(e.code === 'Space') game.keys[' '] = false;
+        });
+        window.addEventListener('mousedown', e => {
+            if(e.button === 0) game.keys['click'] = true;
+            if(e.button === 2) game.keys['rightclick'] = true;
+        });
+        window.addEventListener('mouseup', e => {
+            if(e.button === 0) game.keys['click'] = false;
+            if(e.button === 2) game.keys['rightclick'] = false;
+        });
+        window.addEventListener('contextmenu', e => e.preventDefault());
+        window.addEventListener('mousemove', e => {
+            game.mouse.x = e.clientX; game.mouse.y = e.clientY;
+        });
+    }
 
     // Empezar
     player = new Player(0, 0);
@@ -1617,16 +1622,24 @@ function connectToServer(serverURL = SERVER_URL) {
 
         socket.on('game-started', (data) => {
             console.log('🎮 ¡La partida ha iniciado!');
-            if (!document.getElementById('warmup-screen').classList.contains('hidden')) {
-                document.getElementById('warmup-screen').classList.add('hidden');
-                isInWarmup = false;
-                gameMode = 'MULTIPLAYER';
-                initGame();
-            } else if (!document.getElementById('lobby-screen').classList.contains('hidden')) {
-                document.getElementById('lobby-screen').classList.add('hidden');
-                gameMode = 'MULTIPLAYER';
-                initGame();
+            isInWarmup = false;
+            gameMode = 'MULTIPLAYER';
+            
+            // Ocultar warmup completamente
+            document.getElementById('warmup-screen').classList.add('hidden');
+            document.getElementById('warmup-screen').style.display = 'none';
+            
+            // Cargar nuevo nivel generado por servidor
+            game.level = data.level || 1;
+            if (data.seed) {
+                // Usar semilla del servidor para mapas sincronizados
             }
+            
+            // Recargar el nivel con nuevos enemigos
+            entities = [];
+            bullets = [];
+            items = [];
+            loadLevel();
         });
 
         socket.on('player-died', (data) => {
@@ -1861,17 +1874,20 @@ function startGameFromLobby() {
         return;
     }
     
+    if (!socket || !currentRoom) {
+        alert('Error: No conectado al servidor');
+        return;
+    }
+    
     // Desabilitar botón mientras se procesa
     const startBtn = document.getElementById('lobby-start-btn');
     startBtn.disabled = true;
     startBtn.textContent = '⏳ Iniciando...';
     
-    // Notificar al servidor - ESPERAR respuesta
-    if (socket && isMultiplayer) {
-        socket.emit('enter-warmup', {
-            roomCode: currentRoom
-        });
-    }
+    // Notificar al servidor para entrar a warmup
+    socket.emit('enter-warmup', {
+        roomCode: currentRoom
+    });
 }
 
 // Abandonar lobby
@@ -1903,6 +1919,8 @@ function startWarmup() {
     gameMode = 'WARMUP';
     document.getElementById('lobby-screen').classList.add('hidden');
     document.getElementById('warmup-screen').classList.remove('hidden');
+    // Mostrar warmup como overlay
+    document.getElementById('warmup-screen').style.display = 'flex';
     updateWarmupDisplay();
     
     // Iniciar juego en modo warmup
@@ -1939,15 +1957,23 @@ function startRealGame() {
         return;
     }
     
+    if (!socket || !currentRoom) {
+        alert('Error: No conectado al servidor');
+        return;
+    }
+    
     const startBtn = document.getElementById('warmup-start-btn');
     startBtn.disabled = true;
     startBtn.textContent = '⏳ Iniciando...';
     
-    if (socket && isMultiplayer) {
-        socket.emit('start-game', {
-            roomCode: currentRoom
-        });
-    }
+    isInWarmup = false;
+    gameMode = 'MULTIPLAYER';
+    document.getElementById('warmup-screen').classList.add('hidden');
+    document.getElementById('warmup-screen').style.display = 'none';
+    
+    socket.emit('start-game', {
+        roomCode: currentRoom
+    });
 }
 
 </script>
