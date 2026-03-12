@@ -1599,14 +1599,14 @@ function connectToServer(serverURL = SERVER_URL) {
         });
 
         socket.on('game-joined', (data) => {
-            console.log('🎮 Unido a sala:', data.roomCode);
+            console.log('Unido a sala:', data.roomCode);
             currentRoom = data.roomCode;
             isMultiplayer = true;
             
             // Cargar jugadores existentes en la sala
             if (data.existingPlayers) {
                 for (const [playerId, playerData] of Object.entries(data.existingPlayers)) {
-                    if (playerId !== socket.id) { // No agregarse a uno mismo
+                    if (playerId !== socket.id) {
                         remotePlayersSockets[playerId] = {
                             name: playerData.name,
                             x: playerData.x,
@@ -1625,11 +1625,14 @@ function connectToServer(serverURL = SERVER_URL) {
                             kills: playerData.kills,
                             alive: playerData.alive
                         };
-                        console.log(`👥 Jugador existente cargado: ${playerData.name}`);
                     }
                 }
             }
-            // El juego ya está iniciado, ahora con multiplicador
+            
+            // Actualizar lobby si estamos en él
+            if (!document.getElementById('lobby-screen').classList.contains('hidden')) {
+                updateLobbyDisplay();
+            }
         });
 
         socket.on('player-joined', (data) => {
@@ -1720,14 +1723,11 @@ function connectToServer(serverURL = SERVER_URL) {
         });
 
         socket.on('game-started', (data) => {
-            console.warn('🟢 [CLIENTE] game-started recibido DESDE SERVIDOR');
-            console.warn('🟢 [CLIENTE] roomCode:', data.roomCode, 'currentRoom:', currentRoom);
-            console.log('🎮 ¡La partida ha iniciado!', data);
+            console.log('[GAME] game-started recibido del servidor');
             
             // Cancelar reintentos si estaban activos
             if (window.gameStartTimeout) {
                 clearTimeout(window.gameStartTimeout);
-                console.warn('🟢 [CLIENTE] Cancelado fallback');
             }
             
             isInWarmup = false;
@@ -1985,39 +1985,35 @@ function updateLobbyDisplay() {
 
 // Iniciar juego desde el lobby
 function startGameFromLobby() {
-    console.warn('🟡 [LOBBY] Botón presionado - intentando entrar a warmup');
+    console.log('[LOBBY] Botón presionado');
     const totalPlayers = 1 + Object.keys(remotePlayersSockets).length;
-    console.warn('🟡 [LOBBY] Total jugadores:', totalPlayers);
     
     if (totalPlayers < 2) {
         alert('Necesitas al menos 2 jugadores');
-        console.warn('🟡 [LOBBY] ERROR: Menos de 2 jugadores');
         return;
     }
     
     if (!socket || !currentRoom) {
         alert('Error: No conectado al servidor');
-        console.warn('🟡 [LOBBY] ERROR: No socket o no currentRoom');
         return;
     }
     
-    // Desabilitar botón mientras se procesa
     const startBtn = document.getElementById('lobby-start-btn');
     startBtn.disabled = true;
     startBtn.textContent = '⏳ Iniciando...';
     
-    console.warn('🟡 [LOBBY] Emitiendo enter-warmup a servidor:', currentRoom);
+    console.log('[LOBBY] Emitiendo enter-warmup');
     
-    // Notificar al servidor para entrar a warmup
     socket.emit('enter-warmup', {
         roomCode: currentRoom
     });
     
     // FALLBACK: Si el servidor no responde en 4 segundos, iniciar warmup localmente
-    // (Esto ayuda con la latencia de Render en producción)
     window.warmupTimeout = setTimeout(() => {
-        console.warn('🟠 [LOBBY] Timeout - iniciando warmup localmente sin esperar servidor');
+        console.log('[LOBBY] Timeout - iniciando warmup');
         startWarmup();
+    }, 4000);
+}
     }, 4000);
 }
 
