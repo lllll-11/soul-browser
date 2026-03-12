@@ -1641,6 +1641,57 @@ function connectToServer(serverURL = SERVER_URL) {
             }
         });
 
+        socket.on('players-list-updated', (data) => {
+            console.log('[PLAYERS-LIST] Actualización de jugadores:', data.players);
+            console.log('[PLAYERS-LIST] Total en servidor:', data.totalPlayers);
+            
+            // Reconstruir remotePlayersSockets basado en la lista del servidor
+            // (esto sincroniza a todos aunque sea la primera vez que ven a otros)
+            const newRemote = {};
+            
+            for (const player of data.players) {
+                if (player.id !== socket.id) {
+                    if (!remotePlayersSockets[player.id]) {
+                        // Jugador nuevo
+                        console.log('[PLAYERS-LIST] Nuevo jugador detectado:', player.name);
+                        newRemote[player.id] = {
+                            name: player.name,
+                            x: 0,
+                            y: 0,
+                            vx: 0,
+                            vy: 0,
+                            angle: 0,
+                            hp: 100,
+                            maxHp: 100,
+                            shield: 50,
+                            maxShield: 50,
+                            energy: 200,
+                            maxEnergy: 200,
+                            weapon: 'PISTOL',
+                            coins: 0,
+                            kills: 0,
+                            alive: true
+                        };
+                    } else {
+                        // Jugador existente
+                        newRemote[player.id] = remotePlayersSockets[player.id];
+                    }
+                }
+            }
+            
+            remotePlayersSockets = newRemote;
+            console.log('[PLAYERS-LIST] Jugadores remotos ahora:', Object.keys(remotePlayersSockets).length);
+            
+            // Actualizar UI
+            if (!document.getElementById('lobby-screen').classList.contains('hidden')) {
+                updateLobbyDisplay();
+            }
+            
+            if (!document.getElementById('warmup-screen').classList.contains('hidden')) {
+                updateWarmupPlayersList();
+            }
+        });
+
         socket.on('player-joined', (data) => {
             console.log('[PLAYER-JOINED] Nuevo jugador:', data.playerName);
             console.log('[PLAYER-JOINED] Jugadores remotos ahora:', Object.keys(remotePlayersSockets).length + 1);

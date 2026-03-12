@@ -89,18 +89,20 @@ io.on('connection', (socket) => {
             existingPlayers: game.players
         });
 
-        // Notificar a otros jugadores que se unió este jugador
-        const otherPlayers = Object.keys(game.players).filter(id => id !== socket.id);
-        console.log(`[JOIN-GAME] Emitiendo player-joined a ${otherPlayers.length} otros jugadores`);
+        // Notificar a TODOS (incluyendo el que se acaba de unir) quiénes están en la sala
+        const updatedPlayers = Object.entries(game.players).map(([id, p]) => ({
+            id: p.id,
+            name: p.name
+        }));
         
-        socket.to(roomCode).emit('player-joined', {
-            playerId: socket.id,
-            playerName,
-            playerData: game.players[socket.id]
+        console.log(`[JOIN-GAME] Emitiendo players-list a TODOS en ${roomCode}`);
+        io.to(roomCode).emit('players-list-updated', {
+            roomCode,
+            players: updatedPlayers,
+            totalPlayers: playerList.length
         });
 
         console.log(`[SALA ${roomCode}] ${playerName} unido. Total: ${playerList.length}. Jugadores: ${playerList.join(', ')}`);
-    });
 
     // Evento: Actualizar posición del jugador
     socket.on('player-move', (data) => {
