@@ -75,11 +75,12 @@ io.on('connection', (socket) => {
         // Unir socket a la sala
         socket.join(roomCode);
 
-        // Notificar al cliente
+        // Notificar al cliente con los jugadores existentes
         socket.emit('game-joined', {
             roomCode,
             playerId: socket.id,
-            gameState: game
+            gameState: game,
+            existingPlayers: game.players
         });
 
         // Notificar a otros jugadores

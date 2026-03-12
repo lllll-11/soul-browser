@@ -1591,6 +1591,33 @@ function connectToServer(serverURL = SERVER_URL) {
             console.log('🎮 Unido a sala:', data.roomCode);
             currentRoom = data.roomCode;
             isMultiplayer = true;
+            
+            // Cargar jugadores existentes en la sala
+            if (data.existingPlayers) {
+                for (const [playerId, playerData] of Object.entries(data.existingPlayers)) {
+                    if (playerId !== socket.id) { // No agregarse a uno mismo
+                        remotePlayersSockets[playerId] = {
+                            name: playerData.name,
+                            x: playerData.x,
+                            y: playerData.y,
+                            vx: playerData.vx,
+                            vy: playerData.vy,
+                            angle: playerData.angle,
+                            hp: playerData.hp,
+                            maxHp: playerData.maxHp,
+                            shield: playerData.shield,
+                            maxShield: playerData.maxShield,
+                            energy: playerData.energy,
+                            maxEnergy: playerData.maxEnergy,
+                            weapon: playerData.weapon,
+                            coins: playerData.coins,
+                            kills: playerData.kills,
+                            alive: playerData.alive
+                        };
+                        console.log(`👥 Jugador existente cargado: ${playerData.name}`);
+                    }
+                }
+            }
             // El juego ya está iniciado, ahora con multiplicador
         });
 
