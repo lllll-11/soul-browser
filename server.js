@@ -260,12 +260,19 @@ io.on('connection', (socket) => {
             games[roomCode].state = 'PLAYING';
             games[roomCode].seed = Math.random(); // Nueva semilla para generación
             
+            // Revivir a todos los jugadores muertos
+            for (const [pid, p] of Object.entries(games[roomCode].players)) {
+                p.alive = true;
+                p.hp = p.maxHp;
+                p.shield = p.maxShield;
+            }
+            
             io.to(roomCode).emit('level-changed', {
                 level,
                 seed: games[roomCode].seed
             });
             
-            console.log(`[SALA ${roomCode}] Nivel cambió a ${level}`);
+            console.log(`[SALA ${roomCode}] Nivel cambió a ${level} - todos revividos`);
         }
     });
 

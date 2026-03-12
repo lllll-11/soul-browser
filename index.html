@@ -228,6 +228,17 @@
         <div style="font-size: 10px; color: #94a3b8;">Jugadores: <span id="mp-player-count">1</span></div>
     </div>
 
+    <!-- SPECTATE BANNER -->
+    <div id="spectate-banner" class="hidden" style="position: absolute; top: 50px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); border: 2px solid var(--health); border-radius: 12px; padding: 12px 30px; color: white; font-size: 18px; z-index: 60; pointer-events: none; font-family: 'Orbitron', monospace; text-align: center; backdrop-filter: blur(5px); box-shadow: 0 0 20px rgba(239,68,68,0.4);">
+        HAS MUERTO - Espectando...
+    </div>
+
+    <!-- PLAYER DATA BANNER -->
+    <div id="player-banner" style="position: absolute; top: 10px; right: 10px; background: rgba(2,6,23,0.9); border: 1px solid rgba(0,240,255,0.3); border-radius: 10px; padding: 8px 12px; color: white; font-size: 12px; z-index: 15; pointer-events: none; display: none; font-family: 'Rajdhani', sans-serif; min-width: 180px; backdrop-filter: blur(3px);">
+        <div style="font-family: 'Orbitron', monospace; font-size: 11px; color: var(--accent); margin-bottom: 6px; border-bottom: 1px solid rgba(0,240,255,0.2); padding-bottom: 4px;">JUGADORES</div>
+        <div id="player-banner-list"></div>
+    </div>
+
     <!-- LOBBY SCREEN -->
     <div id="lobby-screen" class="overlay hidden">
         <h1 class="title" style="font-size: 50px;">SALA DE ESPERA</h1>
@@ -689,6 +700,7 @@ class Player extends Entity {
         this.lastHitFrame = 0;
         this.lastShotFrame = 0;
         this.angle = 0;
+        this.isDead = false;
     }
 
     get weapon() { return this.weapons[this.currentWeaponIdx]; }
@@ -752,6 +764,9 @@ class Player extends Entity {
         } else if (!game.keys['q']) {
             this.qPressed = false;
         }
+        
+        // Aplicar físicas (movimiento + colisión + fricción)
+        super.update();
         
         // Recoger Items o Portal
         this.checkInteractions();
@@ -841,6 +856,7 @@ class Player extends Entity {
         if (isInWarmup) return;
         
         if (this.dashTimer > 0) return; // Invencible en Dash
+        if (this.isDead) return; // Ya está muerto
         
         AudioSys.hit();
         game.camera.shake = 10;
@@ -860,10 +876,28 @@ class Player extends Entity {
         }
         
         if(this.hp <= 0) {
-            game.state = 'GAMEOVER';
-            document.getElementById('game-over-screen').classList.remove('hidden');
-            document.getElementById('final-level').innerText = game.level;
-            document.getElementById('final-kills').innerText = game.kills;
+            this.hp = 0;
+            this.isDead = true;
+            
+            // Emitir muerte al servidor en multiplayer
+            if (isMultiplayer && socket && currentRoom) {
+                socket.emit('game-over', {
+                    roomCode: currentRoom,
+                    level: game.level,
+                    kills: game.kills
+                });
+            }
+            
+            // En singleplayer: game over clásico
+            if (!isMultiplayer) {
+                game.state = 'GAMEOVER';
+                document.getElementById('game-over-screen').classList.remove('hidden');
+                document.getElementById('final-level').innerText = game.level;
+                document.getElementById('final-kills').innerText = game.kills;
+            } else {
+                // En multiplayer: entrar en modo espectador
+                enterSpectateMode();
+            }
         }
     }
     
@@ -1118,7 +1152,7 @@ class Enemy extends Entity {
         }
 
         // Daño por contacto melee - escala con nivel
-        if (MathUtils.dist(this.x, this.y, player.x, player.y) < (this.w/2 + player.w/2 + 5)) {
+        if (!player.isDead && MathUtils.dist(this.x, this.y, player.x, player.y) < (this.w/2 + player.w/2 + 5)) {
             player.takeDamage(Math.floor(((this.tier==='fast'? 15 : 5) + level) * (1 + level * 0.1)));
         }
 
@@ -1267,7 +1301,7 @@ class Bullet {
                 }
             }
         } else {
-            if (MathUtils.AABB(this, player)) {
+            if (!player.isDead && MathUtils.AABB(this, player)) {
                 // Bala de enemigo contra jugador local
                 player.takeDamage(this.dmg);
                 this.destroy();
@@ -1709,8 +1743,20 @@ function gameLoop() {
     game.mouse.worldX = game.mouse.x + game.camera.x;
     game.mouse.worldY = game.mouse.y + game.camera.y;
 
-    // Update Objects
-    player.update();
+    // Update Objects - solo si el jugador está vivo
+    if (!player.isDead) {
+        player.update();
+    } else if (spectateMode) {
+        // En modo espectador: cambiar target con click izq/der
+        if (game.keys['click'] && !game._specClickL) {
+            cycleSpectateTarget(1);
+            game._specClickL = true;
+        } else if (!game.keys['click']) { game._specClickL = false; }
+        if (game.keys['rightclick'] && !game._specClickR) {
+            cycleSpectateTarget(-1);
+            game._specClickR = true;
+        } else if (!game.keys['rightclick']) { game._specClickR = false; }
+    }
     
     // En warmup: no hay enemigos, solo jugadores
     if (!isInWarmup && !countdownState.active) {
@@ -1745,13 +1791,24 @@ function gameLoop() {
     if (isMultiplayer && game.frame % 3 === 0) {
         syncPlayerPosition();
     }
+    // Sincronizar estado del jugador (HP, kills, etc) cada 30 frames
+    if (isMultiplayer && game.frame % 30 === 0) {
+        syncPlayerState();
+    }
 
     // Camera follow & shake
-    let targetCamX = player.x + player.w/2 - canvas.width/2;
-    let targetCamY = player.y + player.h/2 - canvas.height/2;
-    // Mouse lookahead
-    targetCamX += (game.mouse.x - canvas.width/2) * 0.2;
-    targetCamY += (game.mouse.y - canvas.height/2) * 0.2;
+    let targetCamX, targetCamY;
+    if (spectateMode && spectateTargetId && remotePlayersSockets[spectateTargetId]) {
+        let target = remotePlayersSockets[spectateTargetId];
+        targetCamX = target.x + C.PLAYER_SIZE/2 - canvas.width/2;
+        targetCamY = target.y + C.PLAYER_SIZE/2 - canvas.height/2;
+    } else {
+        targetCamX = player.x + player.w/2 - canvas.width/2;
+        targetCamY = player.y + player.h/2 - canvas.height/2;
+        // Mouse lookahead
+        targetCamX += (game.mouse.x - canvas.width/2) * 0.2;
+        targetCamY += (game.mouse.y - canvas.height/2) * 0.2;
+    }
     
     game.camera.x += (targetCamX - game.camera.x) * 0.1;
     game.camera.y += (targetCamY - game.camera.y) * 0.1;
@@ -1838,7 +1895,7 @@ function draw() {
         entities.forEach(e => e.draw());
     }
     
-    player.draw();
+    if (!player.isDead) player.draw();
     
     // Dibujar jugadores remotos en multijugador
     if (isMultiplayer) drawRemotePlayers();
@@ -2097,6 +2154,11 @@ let isMultiplayer = false;
 let gameMode = 'SINGLE'; // SINGLE, WARMUP, MULTIPLAYER
 let isInWarmup = false;
 
+// Spectate mode
+let spectateMode = false;
+let spectateTargetId = null; // ID del jugador que estamos espectando
+let spectateTargetIdx = 0; // Índice actual en la lista de jugadores vivos
+
 // Conectar a servidor Socket.IO
 function connectToServer(serverURL = SERVER_URL) {
     const scriptTag = document.createElement('script');
@@ -2281,6 +2343,14 @@ function connectToServer(serverURL = SERVER_URL) {
             document.getElementById('shop-screen').classList.add('hidden');
             game.state = 'PLAYING';
             
+            // REVIVIR jugador si estaba muerto
+            revivePlayer();
+            
+            // Revivir jugadores remotos
+            for (const [id, rp] of Object.entries(remotePlayersSockets)) {
+                rp.alive = true;
+            }
+            
             // Reset entidades
             entities = [];
             bullets = [];
@@ -2456,6 +2526,62 @@ function syncPlayerState() {
             kills: game.kills
         });
     }
+}
+
+// ==========================================
+// SPECTATE MODE
+// ==========================================
+function enterSpectateMode() {
+    spectateMode = true;
+    // Buscar primer jugador vivo para espectar
+    let alivePlayers = Object.entries(remotePlayersSockets).filter(([id, p]) => p.alive);
+    if (alivePlayers.length > 0) {
+        spectateTargetIdx = 0;
+        spectateTargetId = alivePlayers[0][0];
+    } else {
+        spectateTargetId = null;
+    }
+    document.getElementById('spectate-banner').classList.remove('hidden');
+    updateSpectateBanner();
+}
+
+function exitSpectateMode() {
+    spectateMode = false;
+    spectateTargetId = null;
+    document.getElementById('spectate-banner').classList.add('hidden');
+}
+
+function cycleSpectateTarget(direction) {
+    let alivePlayers = Object.entries(remotePlayersSockets).filter(([id, p]) => p.alive);
+    if (alivePlayers.length === 0) {
+        spectateTargetId = null;
+        updateSpectateBanner();
+        return;
+    }
+    spectateTargetIdx = (spectateTargetIdx + direction + alivePlayers.length) % alivePlayers.length;
+    spectateTargetId = alivePlayers[spectateTargetIdx][0];
+    updateSpectateBanner();
+}
+
+function updateSpectateBanner() {
+    let banner = document.getElementById('spectate-banner');
+    if (!spectateMode) return;
+    if (spectateTargetId && remotePlayersSockets[spectateTargetId]) {
+        let target = remotePlayersSockets[spectateTargetId];
+        banner.innerHTML = `<span style="color: var(--health); font-weight: bold;">HAS MUERTO</span> &mdash; Espectando: <span style="color: var(--accent); font-weight: bold;">${target.name}</span> <span style="color: #94a3b8; font-size: 14px;">[Click izq/der para cambiar]</span>`;
+    } else {
+        banner.innerHTML = `<span style="color: var(--health); font-weight: bold;">HAS MUERTO</span> &mdash; <span style="color: #94a3b8;">No hay jugadores vivos para espectar</span>`;
+    }
+}
+
+function revivePlayer() {
+    if (!player) return;
+    player.isDead = false;
+    player.hp = player.maxHp;
+    player.shield = player.maxShield;
+    player.energy = player.maxEnergy;
+    exitSpectateMode();
+    document.getElementById('game-over-screen').classList.add('hidden');
 }
 
 // Dibujar otros jugadores remotos
@@ -2654,6 +2780,45 @@ function updateMultiplayerStatus() {
         document.getElementById('mp-room-code').textContent = currentRoom;
         document.getElementById('mp-player-count').textContent = Object.keys(remotePlayersSockets).length + 1;
     }
+    // Update player banner
+    updatePlayerBanner();
+}
+
+function updatePlayerBanner() {
+    if (!isMultiplayer || !player) {
+        document.getElementById('player-banner').style.display = 'none';
+        return;
+    }
+    document.getElementById('player-banner').style.display = 'block';
+    let list = document.getElementById('player-banner-list');
+    let html = '';
+    
+    // Self
+    let selfName = localStorage.getItem('playerName') || 'Tú';
+    let selfColor = player.isDead ? 'var(--health)' : '#10b981';
+    let selfStatus = player.isDead ? '💀' : '♥';
+    let selfHpPct = Math.max(0, Math.round((player.hp / player.maxHp) * 100));
+    html += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+        <span style="color:${selfColor};font-size:14px;">${selfStatus}</span>
+        <span style="color:#00ccff;font-weight:bold;flex:1;">${selfName}</span>
+        <span style="color:#94a3b8;font-size:11px;">HP ${selfHpPct}%</span>
+        <span style="color:var(--gold);font-size:11px;">⚔${game.kills}</span>
+    </div>`;
+    
+    // Remote players
+    for (const [id, rp] of Object.entries(remotePlayersSockets)) {
+        let rpColor = rp.alive ? '#10b981' : 'var(--health)';
+        let rpStatus = rp.alive ? '♥' : '💀';
+        let rpHpPct = (rp.maxHp > 0) ? Math.max(0, Math.round((rp.hp / rp.maxHp) * 100)) : 0;
+        html += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+            <span style="color:${rpColor};font-size:14px;">${rpStatus}</span>
+            <span style="color:#ef4444;font-weight:bold;flex:1;">${rp.name || 'Jugador'}</span>
+            <span style="color:#94a3b8;font-size:11px;">HP ${rpHpPct}%</span>
+            <span style="color:var(--gold);font-size:11px;">⚔${rp.kills || 0}</span>
+        </div>`;
+    }
+    
+    list.innerHTML = html;
 }
 
 // Iniciar warmup room
