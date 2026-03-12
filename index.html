@@ -336,6 +336,65 @@ let particles = [];
 let items = [];
 let map = { walls: [], floors: [], rooms: [], portal: null };
 
+// Sistema de aprendizaje de patrones del jugador
+const PatternAI = {
+    shootAngles: [],       // Últimos N ángulos de disparo
+    shootPositions: [],    // Últimas N posiciones al disparar
+    moveDirections: [],    // Últimas N direcciones de movimiento
+    dodgeChance: 0,        // Probabilidad base de esquivar (crece con niveles)
+    maxSamples: 50,
+    
+    recordShot(angle, x, y) {
+        this.shootAngles.push(angle);
+        this.shootPositions.push({ x, y });
+        if (this.shootAngles.length > this.maxSamples) this.shootAngles.shift();
+        if (this.shootPositions.length > this.maxSamples) this.shootPositions.shift();
+    },
+    
+    recordMove(vx, vy) {
+        if (Math.abs(vx) > 0.5 || Math.abs(vy) > 0.5) {
+            this.moveDirections.push({ vx, vy });
+            if (this.moveDirections.length > this.maxSamples) this.moveDirections.shift();
+        }
+    },
+    
+    // Predecir hacia dónde disparará el jugador
+    predictPlayerAim() {
+        if (this.shootAngles.length < 3) return null;
+        let recent = this.shootAngles.slice(-10);
+        let avg = recent.reduce((a, b) => a + b, 0) / recent.length;
+        return avg;
+    },
+    
+    // Predecir movimiento del jugador
+    predictPlayerMove() {
+        if (this.moveDirections.length < 3) return null;
+        let recent = this.moveDirections.slice(-10);
+        let avgVx = recent.reduce((a, b) => a + b.vx, 0) / recent.length;
+        let avgVy = recent.reduce((a, b) => a + b.vy, 0) / recent.length;
+        return { vx: avgVx, vy: avgVy };
+    },
+    
+    // Resetear al cambiar de nivel
+    reset() {
+        this.shootAngles = [];
+        this.shootPositions = [];
+        this.moveDirections = [];
+    },
+    
+    updateDifficulty(level) {
+        this.dodgeChance = Math.min(0.6, 0.05 * level); // Max 60% a nivel 12+
+    }
+};
+
+// Estado del countdown entre niveles
+let countdownState = {
+    active: false,
+    timeLeft: 5,
+    startTime: 0,
+    onComplete: null
+};
+
 // ==========================================
 // MOTOR DE AUDIO (Web Audio API - Sintetizador)
 // ==========================================
@@ -660,6 +719,8 @@ class Player extends Entity {
         if (this.energy < w.cost) {
             return;
         }
+        // Registrar disparo para IA adaptativa
+        PatternAI.recordShot(this.angle, this.x, this.y);
 
         this.energy -= w.cost;
         this.lastShotFrame = game.frame;
@@ -853,63 +914,113 @@ class Enemy extends Entity {
         super(x, y, size, size);
         
         this.tier = tier;
-        this.speed = (tier === 'fast') ? 4.5 : (tier === 'tank' ? 2 : 3);
         
-        // Dificultad escala con el nivel
-        let scale = 1 + (game.level * 0.2);
+        // Dificultad escala exponencialmente con el nivel
+        let level = game.level;
+        let scale = 1 + (level * 0.3) + Math.pow(level, 1.4) * 0.05;
+        let speedScale = 1 + Math.min(level * 0.08, 2.0); // Max 3x velocidad
+        
+        this.speed = ((tier === 'fast') ? 4.5 : (tier === 'tank' ? 2 : 3)) * speedScale;
+        
         this.maxHp = (tier === 'boss' ? 1000 : (tier === 'tank' ? 150 : 40)) * scale;
         this.hp = this.maxHp;
         
         this.color = (tier === 'fast') ? '#f97316' : (tier === 'tank' ? '#b91c1c' : (tier === 'boss' ? '#7f1d1d' : C.COLORS.enemy));
         this.lastShot = 0;
+        
+        // IA adaptativa: cada enemigo tiene su propia probabilidad de esquivar
+        this.dodgeChance = PatternAI.dodgeChance + (Math.random() * 0.1);
+        this.dodgeCooldown = 0;
+        this.strafeDir = (Math.random() > 0.5) ? 1 : -1; // Dirección de evasión
     }
 
     update() {
         let dist = MathUtils.dist(this.x, this.y, player.x, player.y);
         let ang = MathUtils.angle(this.x, this.y, player.x, player.y);
+        let level = game.level;
+        
+        // Cooldowns
+        if (this.dodgeCooldown > 0) this.dodgeCooldown--;
         
         // Comportamiento de Movimiento
         if (dist < 800) { // Rango de visión
             // Predictive aim for bosses/tanks
             if (this.tier === 'boss' || this.tier === 'tank') {
-                let px = player.x + player.vx * 10;
-                let py = player.y + player.vy * 10;
+                let predMove = PatternAI.predictPlayerMove();
+                let leadTime = (this.tier === 'boss') ? 15 : 10;
+                let px = player.x + (predMove ? predMove.vx * leadTime : player.vx * leadTime);
+                let py = player.y + (predMove ? predMove.vy * leadTime : player.vy * leadTime);
                 ang = MathUtils.angle(this.x, this.y, px, py);
             }
 
             let move = true;
-            if ((this.tier === 'shooter' || this.tier === 'boss') && dist < 300) move = false; // Mantener distancia
+            if ((this.tier === 'shooter' || this.tier === 'boss') && dist < 300) move = false;
+            
+            // ESQUIVAR: Si el jugador apunta hacia este enemigo, moverse perpendicular
+            if (this.dodgeCooldown <= 0 && Math.random() < this.dodgeChance) {
+                let predAim = PatternAI.predictPlayerAim();
+                if (predAim !== null) {
+                    let aimToMe = MathUtils.angle(player.x, player.y, this.x, this.y);
+                    let aimDiff = Math.abs(predAim - aimToMe);
+                    if (aimDiff < 0.5) { // Jugador apunta hacia mí
+                        // Mover perpendicular al ángulo de disparo
+                        let perpAng = predAim + (Math.PI / 2) * this.strafeDir;
+                        this.vx += Math.cos(perpAng) * this.speed * 0.8;
+                        this.vy += Math.sin(perpAng) * this.speed * 0.8;
+                        this.dodgeCooldown = 30 - Math.min(level, 20); // Cooldown decrece con nivel
+                        this.strafeDir *= -1; // Alternar dirección
+                        move = false;
+                    }
+                }
+            }
             
             if (move) {
                 this.vx += Math.cos(ang) * this.speed * 0.2;
                 this.vy += Math.sin(ang) * this.speed * 0.2;
             }
 
-            // Disparo
-            if (game.frame - this.lastShot > (this.tier==='boss'?30:(this.tier==='shooter'?60:120))) {
+            // Disparo - rate escala con nivel
+            let fireRateMult = Math.max(0.3, 1 - level * 0.03); // Hasta 70% más rápido
+            let baseRate = (this.tier==='boss'?30:(this.tier==='shooter'?60:120));
+            if (game.frame - this.lastShot > baseRate * fireRateMult) {
+                let dmgScale = 1 + level * 0.15;
                 if (this.tier === 'shooter') {
-                    bullets.push(new Bullet(this.x+this.w/2, this.y+this.h/2, ang, {dmg: 10*game.level*0.5, speed: 8, color: C.COLORS.bulletE}, false));
+                    // A partir de nivel 5, disparan ráfagas
+                    let shotCount = 1 + Math.floor(level / 5);
+                    for (let s = 0; s < Math.min(shotCount, 4); s++) {
+                        let spreadAng = ang + (s - (shotCount-1)/2) * 0.15;
+                        bullets.push(new Bullet(this.x+this.w/2, this.y+this.h/2, spreadAng, {dmg: Math.floor(10*level*0.5*dmgScale), speed: 8 + level*0.2, color: C.COLORS.bulletE}, false));
+                    }
                     this.lastShot = game.frame;
                 } else if (this.tier === 'boss') {
-                    // Patrón Bullet Hell
-                    for(let i=0; i<8; i++) {
-                        let offset = (Math.PI*2/8) * i + (game.frame*0.05);
-                        bullets.push(new Bullet(this.x+this.w/2, this.y+this.h/2, offset, {dmg: 15, speed: 6, color: '#f43f5e'}, false));
+                    // Patrón Bullet Hell - más balas con nivel
+                    let bulletCount = 8 + Math.floor(level / 2);
+                    for(let i=0; i<bulletCount; i++) {
+                        let offset = (Math.PI*2/bulletCount) * i + (game.frame*0.05);
+                        bullets.push(new Bullet(this.x+this.w/2, this.y+this.h/2, offset, {dmg: Math.floor(15*dmgScale), speed: 6 + level*0.15, color: '#f43f5e'}, false));
+                    }
+                    // A partir de nivel 10, patrón doble (espiral inversa)
+                    if (level >= 10) {
+                        for(let i=0; i<bulletCount; i++) {
+                            let offset = (Math.PI*2/bulletCount) * i - (game.frame*0.03);
+                            bullets.push(new Bullet(this.x+this.w/2, this.y+this.h/2, offset, {dmg: Math.floor(12*dmgScale), speed: 5, color: '#e11d48'}, false));
+                        }
                     }
                     this.lastShot = game.frame;
                 } else if (this.tier === 'tank' && dist < 400) {
-                    // Shotgun enemy
-                    for(let i=-2; i<=2; i++) {
-                        bullets.push(new Bullet(this.x+this.w/2, this.y+this.h/2, ang + (i*0.1), {dmg: 12, speed: 10, color: '#fb923c'}, false));
+                    // Shotgun enemy - más pellets con nivel
+                    let pellets = 5 + Math.floor(level / 3);
+                    for(let i=-(pellets>>1); i<=(pellets>>1); i++) {
+                        bullets.push(new Bullet(this.x+this.w/2, this.y+this.h/2, ang + (i*0.08), {dmg: Math.floor(12*dmgScale), speed: 10 + level*0.2, color: '#fb923c'}, false));
                     }
                     this.lastShot = game.frame;
                 }
             }
         }
 
-        // Daño por contacto melee
+        // Daño por contacto melee - escala con nivel
         if (MathUtils.dist(this.x, this.y, player.x, player.y) < (this.w/2 + player.w/2 + 5)) {
-            player.takeDamage((this.tier==='fast'? 15 : 5) + game.level);
+            player.takeDamage(Math.floor(((this.tier==='fast'? 15 : 5) + level) * (1 + level * 0.1)));
         }
 
         super.update();
@@ -1204,16 +1315,29 @@ function loadLevel() {
         return;
     }
     
+    // Actualizar IA adaptativa para este nivel
+    PatternAI.updateDifficulty(game.level);
+    
     let spawn = DungeonGen.generate(game.level);
     player.x = spawn.px; player.y = spawn.py;
     player.vx = 0; player.vy = 0;
     
     entities = []; bullets = []; remoteBullets = []; particles = []; items = [];
     
-    // Generar Enemigos
-    let numEnemies = Math.floor(5 + game.level * 2);
-    let isBossLevel = (game.level % 5 === 0);
+    // NIVEL 0 / Countdown: Sin enemigos (sala de espera)
+    if (countdownState.active) {
+        updateUI();
+        drawMinimap();
+        return;
+    }
     
+    // Generar Enemigos - escalado infinito
+    let level = game.level;
+    let numEnemies = Math.floor(5 + level * 2.5 + Math.pow(level, 1.2) * 0.5);
+    numEnemies = Math.min(numEnemies, 80); // Cap para rendimiento
+    let isBossLevel = (level % 5 === 0);
+    
+    // A partir de nivel 10, hay tipos especiales con más probabilidad
     for(let i=0; i<numEnemies; i++) {
         // No spawn en primera habitación
         let room = map.rooms[MathUtils.randInt(1, map.rooms.length-1)];
@@ -1222,17 +1346,32 @@ function loadLevel() {
         
         let rand = Math.random();
         let type = 'grunt';
-        if (rand > 0.8) type = 'tank';
-        else if (rand > 0.5) type = 'shooter';
-        else if (rand > 0.3) type = 'fast';
+        // Más tanques y shooters en niveles altos
+        let tankThreshold = Math.max(0.5, 0.8 - level * 0.02);
+        let shooterThreshold = Math.max(0.25, 0.5 - level * 0.02);
+        let fastThreshold = Math.max(0.1, 0.3 - level * 0.01);
+        
+        if (rand > tankThreshold) type = 'tank';
+        else if (rand > shooterThreshold) type = 'shooter';
+        else if (rand > fastThreshold) type = 'fast';
         
         entities.push(new Enemy(x, y, type));
     }
     
     if (isBossLevel) {
-        entities = []; // Limpiar para el jefe
+        // En niveles altos, boss + acompañantes
         let room = spawn.lastRoom;
         entities.push(new Enemy(room.cx*C.TILE, room.cy*C.TILE, 'boss'));
+        
+        // A partir de nivel 10, el boss viene con escoltas
+        if (level >= 10) {
+            let escorts = Math.floor(level / 5);
+            for (let e = 0; e < Math.min(escorts, 6); e++) {
+                let ox = room.cx*C.TILE + MathUtils.rand(-200, 200);
+                let oy = room.cy*C.TILE + MathUtils.rand(-200, 200);
+                entities.push(new Enemy(ox, oy, (e % 2 === 0) ? 'tank' : 'shooter'));
+            }
+        }
     }
 
     // Soltar un arma nueva cada pocos niveles
@@ -1322,6 +1461,19 @@ function gameLoop() {
     
     game.frame++;
     
+    // Countdown entre niveles
+    if (countdownState.active) {
+        let elapsed = (Date.now() - countdownState.startTime) / 1000;
+        countdownState.timeLeft = Math.ceil(5 - elapsed);
+        if (countdownState.timeLeft <= 0) {
+            countdownState.active = false;
+            if (countdownState.onComplete) countdownState.onComplete();
+        }
+    }
+    
+    // Registrar patrón de movimiento del jugador para IA
+    PatternAI.recordMove(player.vx, player.vy);
+    
     // Update input world coords
     game.mouse.worldX = game.mouse.x + game.camera.x;
     game.mouse.worldY = game.mouse.y + game.camera.y;
@@ -1330,7 +1482,7 @@ function gameLoop() {
     player.update();
     
     // En warmup: no hay enemigos, solo jugadores
-    if (!isInWarmup) {
+    if (!isInWarmup && !countdownState.active) {
         entities.forEach(e => e.update());
         entities = entities.filter(e => !e.dead);
     }
@@ -1472,6 +1624,42 @@ function draw() {
     // Luz de balas/explosiones
     bullets.forEach(b => addLight(b.x - game.camera.x, b.y - game.camera.y, 80, 0.5));
     if(map.portal) addLight(map.portal.x - game.camera.x, map.portal.y - game.camera.y, 200, 0.8);
+
+    // COUNTDOWN OVERLAY
+    if (countdownState.active && countdownState.timeLeft > 0) {
+        // Fondo semi-transparente
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Número grande pulsante
+        let t = countdownState.timeLeft;
+        let pulse = 1 + Math.sin(Date.now() * 0.01) * 0.1;
+        let fontSize = Math.floor(180 * pulse);
+        
+        ctx.font = `bold ${fontSize}px monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        // Glow effect
+        ctx.shadowColor = '#0ea5e9';
+        ctx.shadowBlur = 40;
+        ctx.fillStyle = '#0ea5e9';
+        ctx.fillText(t, canvas.width/2, canvas.height/2 - 30);
+        ctx.shadowBlur = 0;
+        
+        // Texto "PREPARÁNDOSE..."
+        ctx.font = 'bold 28px monospace';
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText('⚔️ PREPARÁNDOSE PARA EL COMBATE ⚔️', canvas.width/2, canvas.height/2 + 80);
+        
+        // Nivel actual
+        ctx.font = 'bold 22px monospace';
+        ctx.fillStyle = '#64748b';
+        ctx.fillText(`NIVEL ${game.level}`, canvas.width/2, canvas.height/2 + 120);
+        
+        ctx.textAlign = 'start';
+        ctx.textBaseline = 'alphabetic';
+    }
 }
 
 function drawMinimap() {
@@ -1566,6 +1754,17 @@ function nextLevel() {
     game.level++;
     document.getElementById('shop-screen').classList.add('hidden');
     game.state = 'PLAYING';
+    
+    // Countdown de 5 segundos antes de que aparezcan enemigos
+    countdownState.active = true;
+    countdownState.startTime = Date.now();
+    countdownState.timeLeft = 5;
+    countdownState.onComplete = () => {
+        PatternAI.reset();
+        loadLevel();
+    };
+    
+    // Cargar nivel sin enemigos (countdown activo bloquea spawn)
     loadLevel();
 }
 
@@ -1800,7 +1999,7 @@ function connectToServer(serverURL = SERVER_URL) {
             items = [];
             particles = [];
 
-            // OCULTAR PANTALLAS (Esto es lo que saca a todos del lobby)
+            // OCULTAR PANTALLAS
             const warmupScreen = document.getElementById('warmup-screen');
             const menuScreen = document.getElementById('menu-screen');
             
@@ -1810,11 +2009,23 @@ function connectToServer(serverURL = SERVER_URL) {
             }
             if (menuScreen) menuScreen.classList.add('hidden');
             
+            // Iniciar countdown de 5 segundos en la primera habitación sin enemigos
+            countdownState.active = true;
+            countdownState.startTime = Date.now();
+            countdownState.timeLeft = 5;
+            countdownState.onComplete = () => {
+                // Al terminar el countdown, cargar enemigos normalmente
+                PatternAI.reset();
+                loadLevel();
+                console.log('⚔️ ¡Enemigos spawneados! ¡A luchar!');
+            };
+            
+            // Cargar nivel sin enemigos (countdown activo bloquea spawn)
             loadLevel();
             game.state = 'PLAYING';
             updateUI();
             drawMinimap();
-            console.log('🎮 Juego iniciado sincronizadamente');
+            console.log('🎮 Countdown iniciado - 5 segundos para prepararse');
         });
 
         socket.on('player-died', (data) => {
