@@ -102,7 +102,18 @@ io.on('connection', (socket) => {
             totalPlayers: playerList.length
         });
 
+        // Syncronizar estado completo con TODOS
+        for (const [playerId, playerData] of Object.entries(game.players)) {
+            // Emitir a cada jugador en la sala info de todos los otros
+            io.to(roomCode).emit('sync-players', {
+                players: Object.entries(game.players)
+                    .filter(([id]) => id !== playerId) // Los otros
+                    .map(([id, p]) => ({ id, name: p.name }))
+            });
+        }
+        
         console.log(`[SALA ${roomCode}] ${playerName} unido. Total: ${playerList.length}. Jugadores: ${playerList.join(', ')}`);
+    });
 
     // Evento: Actualizar posición del jugador
     socket.on('player-move', (data) => {

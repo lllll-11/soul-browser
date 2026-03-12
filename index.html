@@ -1783,40 +1783,38 @@ function connectToServer(serverURL = SERVER_URL) {
         });
 
         socket.on('game-started', (data) => {
-            console.log('[GAME] game-started recibido del servidor');
+            console.warn('🚀 El servidor ordenó iniciar el juego');
             
-            // Cancelar reintentos si estaban activos
-            if (window.gameStartTimeout) {
-                clearTimeout(window.gameStartTimeout);
-            }
+            // Limpiar cualquier timeout de fallback
+            if (window.gameStartTimeout) clearTimeout(window.gameStartTimeout);
             
+            // Cambiar estado global
             isInWarmup = false;
             gameMode = 'MULTIPLAYER';
-            
-            // Cargar nuevo nivel generado por servidor
             game.level = data.level || 1;
-            if (data.seed) {
-                // Usar semilla del servidor para mapas sincronizados
-            }
             
-            // Recargar el nivel con nuevos enemigos
+            // Reset de entidades para sincronizar
             entities = [];
             bullets = [];
             remoteBullets = [];
             items = [];
             particles = [];
+
+            // OCULTAR PANTALLAS (Esto es lo que saca a todos del lobby)
+            const warmupScreen = document.getElementById('warmup-screen');
+            const menuScreen = document.getElementById('menu-screen');
             
-            console.log('🧹 Arrays limpiados, cargando nivel...');
-            
-            // Ocultar warmup DESPUÉS de recibir confirmación
-            document.getElementById('warmup-screen').classList.add('hidden');
-            document.getElementById('warmup-screen').style.display = 'none';
+            if (warmupScreen) {
+                warmupScreen.classList.add('hidden');
+                warmupScreen.style.display = 'none';
+            }
+            if (menuScreen) menuScreen.classList.add('hidden');
             
             loadLevel();
             game.state = 'PLAYING';
             updateUI();
             drawMinimap();
-            console.log('✅ Partida iniciada correctamente');
+            console.log('🎮 Juego iniciado sincronizadamente');
         });
 
         socket.on('player-died', (data) => {
@@ -2161,69 +2159,31 @@ function updateWarmupPlayersList() {
     });
 }
 
-// Iniciar partida real desde warmup
+// Iniciar partida real desde warmup - SOLO emitir al servidor
 function startRealGame() {
-    console.warn('🔴 [WARMUP] startRealGame() fue llamada');
-    alert('🔴 WARMUP: Botón presionado - iniciando...');
-    
     const totalPlayers = 1 + Object.keys(remotePlayersSockets).length;
-    console.warn('🔴 Total jugadores:', totalPlayers);
     
     if (totalPlayers < 2) {
         alert('Necesitas al menos 2 jugadores');
-        console.error('❌ Error: Menos de 2 jugadores');
         return;
     }
     
     if (!socket || !currentRoom) {
         alert('Error: No conectado al servidor');
-        console.error('❌ Error: socket=', socket, 'currentRoom=', currentRoom);
         return;
     }
     
     const startBtn = document.getElementById('warmup-start-btn');
-    console.warn('🔴 Botón encontrado:', !!startBtn);
-    
     if (startBtn) {
         startBtn.disabled = true;
         startBtn.textContent = '⏳ Iniciando...';
     }
     
-    console.warn('🔴 [WARMUP] Enviando start-game al servidor');
-    console.warn('🔴 roomCode:', currentRoom);
-    console.warn('🔴 socket.id:', socket.id);
-    
-    // NO OCULTAMOS LA PANTALLA AQUÍ - dejar que game-started lo haga
-    
+    // SOLO emitir - el servidor responderá con game-started a TODOS
     socket.emit('start-game', {
         roomCode: currentRoom
     });
-    console.warn('🔴 [WARMUP] Evento enviado, esperando respuesta...');
-    
-    // FALLBACK: Si el servidor no responde en 3 segundos, iniciar localmente
-    window.gameStartTimeout = setTimeout(() => {
-        console.warn('⚠️ FALLBACK ACTIVADO: No se recibió game-started en 3 segundos');
-        console.log('🎮 Iniciando juego localmente (sin esperar servidor)');
-        
-        isInWarmup = false;
-        gameMode = 'MULTIPLAYER';
-        game.level = 1;
-        
-        entities = [];
-        bullets = [];
-        remoteBullets = [];
-        items = [];
-        particles = [];
-        
-        document.getElementById('warmup-screen').classList.add('hidden');
-        document.getElementById('warmup-screen').style.display = 'none';
-        
-        loadLevel();
-        game.state = 'PLAYING';
-        updateUI();
-        drawMinimap();
-        console.warn('✅ Partida iniciada por fallback local');
-    }, 3000);
+    console.log('📡 start-game emitido, esperando respuesta del servidor...');
 }
 
 </script>
