@@ -155,6 +155,23 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Evento: Entrar a warmup
+    socket.on('enter-warmup', (data) => {
+        const { roomCode } = data;
+        
+        if (games[roomCode]) {
+            games[roomCode].state = 'WARMUP';
+            
+            // Notificar a todos en la sala
+            io.to(roomCode).emit('warmup-started', {
+                roomCode,
+                warmupMode: true
+            });
+            
+            console.log(`[SALA ${roomCode}] ¡Warmup iniciado! ${Object.keys(games[roomCode].players).length} jugadores`);
+        }
+    });
+
     // Evento: Iniciar partida
     socket.on('start-game', (data) => {
         const { roomCode } = data;
