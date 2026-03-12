@@ -273,7 +273,7 @@
 const C = {
     TILE: 80,             // Tamaño base del grid
     PLAYER_SIZE: 32,      // Hitbox pequeña para esquivar balas
-    SPEED: 3.5,
+    SPEED: 1,
     DASH_SPEED: 20.0,
     DASH_TIME: 15,
     DASH_CD: 45,
@@ -1343,6 +1343,14 @@ function gameLoop() {
         b.life--;
     });
     remoteBullets = remoteBullets.filter(b => b.life > 0);
+    
+    // Actualizar posición de jugadores remotos para movimiento suave
+    for (const [playerId, remotePlayer] of Object.entries(remotePlayersSockets)) {
+        if (remotePlayer.alive) {
+            remotePlayer.x += remotePlayer.vx;
+            remotePlayer.y += remotePlayer.vy;
+        }
+    }
     
     items.forEach(i => i.update());
     items = items.filter(i => !i.dead);
