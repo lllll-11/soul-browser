@@ -1713,7 +1713,13 @@ function connectToServer(serverURL = SERVER_URL) {
         });
 
         socket.on('game-started', (data) => {
-            console.log('🎮 ¡La partida ha iniciado!');
+            console.log('🎮 ¡La partida ha iniciado!', data);
+            
+            // Cancelar reintentos si estaban activos
+            if (window.gameStartTimeout) {
+                clearTimeout(window.gameStartTimeout);
+            }
+            
             isInWarmup = false;
             gameMode = 'MULTIPLAYER';
             
@@ -1730,7 +1736,9 @@ function connectToServer(serverURL = SERVER_URL) {
             items = [];
             particles = [];
             
-            // Ocultar warmup después de limpiar
+            console.log('🧹 Arrays limpiados, cargando nivel...');
+            
+            // Ocultar warmup DESPUÉS de recibir confirmación
             document.getElementById('warmup-screen').classList.add('hidden');
             document.getElementById('warmup-screen').style.display = 'none';
             
@@ -1738,6 +1746,7 @@ function connectToServer(serverURL = SERVER_URL) {
             game.state = 'PLAYING';
             updateUI();
             drawMinimap();
+            console.log('✅ Partida iniciada correctamente');
         });
 
         socket.on('player-died', (data) => {
@@ -2088,14 +2097,21 @@ function startRealGame() {
     startBtn.disabled = true;
     startBtn.textContent = '⏳ Iniciando...';
     
-    isInWarmup = false;
-    gameMode = 'MULTIPLAYER';
-    document.getElementById('warmup-screen').classList.add('hidden');
-    document.getElementById('warmup-screen').style.display = 'none';
+    // NO OCULTAMOS LA PANTALLA AQUÍ - dejar que game-started lo haga
     
+    console.log('📤 Enviando start-game al servidor para sala:', currentRoom);
     socket.emit('start-game', {
         roomCode: currentRoom
     });
+    
+    // Si después de 5 segundos no recibimos game-started, reintentar
+    window.gameStartTimeout = setTimeout(() => {
+        console.warn('⚠️ Timeout: No se recibió game-started en 5 segundos, reintentando...');
+        console.log('📤 Reintentando start-game...');
+        socket.emit('start-game', {
+            roomCode: currentRoom
+        });
+    }, 5000);
 }
 
 </script>

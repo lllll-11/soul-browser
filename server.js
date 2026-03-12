@@ -174,21 +174,34 @@ io.on('connection', (socket) => {
     // Evento: Iniciar partida
     socket.on('start-game', (data) => {
         const { roomCode } = data;
+        console.log(`[START-GAME] Recibido desde ${socket.id} para sala: ${roomCode}`);
         
-        if (games[roomCode]) {
-            games[roomCode].state = 'PLAYING';
-            games[roomCode].seed = Math.random();
-            games[roomCode].level = games[roomCode].level || 1;
-            
-            // Notificar a todos en la sala
-            io.to(roomCode).emit('game-started', {
-                roomCode,
-                seed: games[roomCode].seed,
-                level: games[roomCode].level
-            });
-            
-            console.log(`[SALA ${roomCode}] ¡Partida iniciada! ${Object.keys(games[roomCode].players).length} jugadores en nivel ${games[roomCode].level}`);
+        if (!games[roomCode]) {
+            console.log(`[ERROR] Sala ${roomCode} no existe`);
+            socket.emit('error', { message: 'Sala no encontrada' });
+            return;
         }
+        
+        if (!games[roomCode].players[socket.id]) {
+            console.log(`[ERROR] Jugador ${socket.id} no está en la sala ${roomCode}`);
+            socket.emit('error', { message: 'No eres parte de esta sala' });
+            return;
+        }
+        
+        games[roomCode].state = 'PLAYING';
+        games[roomCode].seed = Math.random();
+        games[roomCode].level = games[roomCode].level || 1;
+        
+        console.log(`[SALA ${roomCode}] Emitiendo game-started a ${Object.keys(games[roomCode].players).length} jugadores`);
+        
+        // Notificar a todos en la sala
+        io.to(roomCode).emit('game-started', {
+            roomCode,
+            seed: games[roomCode].seed,
+            level: games[roomCode].level
+        });
+        
+        console.log(`[SALA ${roomCode}] ¡Partida iniciada! ${Object.keys(games[roomCode].players).length} jugadores en nivel ${games[roomCode].level}`);
     });
 
     // Evento: Cambio de nivel
