@@ -5,21 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Soul Browser - Infinite Roguelike</title>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&display=swap');
         :root {
-            --bg-color: #020617;
-            --panel-bg: rgba(15, 23, 42, 0.85);
-            --accent: #3b82f6;
-            --health: #ef4444;
-            --shield: #0ea5e9;
-            --energy: #10b981;
-            --gold: #fbbf24;
-            --text: #f8fafc;
+            --bg-color: #0a0a1a;
+            --panel-bg: rgba(10, 10, 30, 0.92);
+            --accent: #00f0ff;
+            --accent2: #ff00aa;
+            --health: #ff2255;
+            --shield: #00ccff;
+            --energy: #00ff88;
+            --gold: #ffcc00;
+            --epic: #aa44ff;
+            --legendary: #ff6600;
+            --text: #eef0ff;
         }
 
         body, html {
             margin: 0; padding: 0; width: 100%; height: 100%;
             background-color: var(--bg-color); color: var(--text);
-            font-family: 'Courier New', Courier, monospace;
+            font-family: 'Rajdhani', 'Courier New', monospace;
             overflow: hidden; user-select: none;
         }
 
@@ -30,21 +34,21 @@
         #hud {
             position: absolute; top: 20px; left: 20px;
             pointer-events: none; z-index: 10;
-            background: var(--panel-bg); padding: 15px;
-            border: 2px solid #334155; border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+            background: var(--panel-bg); padding: 15px 20px;
+            border: 1px solid rgba(0,240,255,0.3); border-radius: 12px;
+            box-shadow: 0 0 20px rgba(0,240,255,0.15), inset 0 0 30px rgba(0,0,0,0.5);
         }
 
         .bar-wrapper { margin-bottom: 10px; }
         .bar-container {
-            width: 250px; height: 22px; background: #1e293b;
-            border: 2px solid #0f172a; border-radius: 4px;
+            width: 260px; height: 20px; background: rgba(0,0,0,0.6);
+            border: 1px solid rgba(255,255,255,0.1); border-radius: 10px;
             position: relative; overflow: hidden;
         }
-        .bar-fill { height: 100%; transition: width 0.1s linear; }
-        #shield-bar { background-color: var(--shield); box-shadow: inset 0 -3px rgba(0,0,0,0.3); }
-        #health-bar { background-color: var(--health); box-shadow: inset 0 -3px rgba(0,0,0,0.3); }
-        #energy-bar { background-color: var(--energy); box-shadow: inset 0 -3px rgba(0,0,0,0.3); }
+        .bar-fill { height: 100%; transition: width 0.15s ease-out; border-radius: 10px; }
+        #shield-bar { background: linear-gradient(90deg, #0066cc, #00ccff); box-shadow: 0 0 8px rgba(0,204,255,0.5); }
+        #health-bar { background: linear-gradient(90deg, #cc0033, #ff2255); box-shadow: 0 0 8px rgba(255,34,85,0.5); }
+        #energy-bar { background: linear-gradient(90deg, #009955, #00ff88); box-shadow: 0 0 8px rgba(0,255,136,0.5); }
         
         .stat-label {
             position: absolute; width: 100%; text-align: center;
@@ -60,11 +64,11 @@
         #weapon-ui {
             position: absolute; bottom: 30px; right: 30px;
             background: var(--panel-bg); padding: 15px 25px;
-            border: 3px solid var(--accent); border-radius: 12px;
-            text-align: right; box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
+            border: 1px solid rgba(0,240,255,0.4); border-radius: 12px;
+            text-align: right; box-shadow: 0 0 20px rgba(0,240,255,0.2), inset 0 0 20px rgba(0,0,0,0.5);
             pointer-events: none; z-index: 10;
         }
-        #weapon-name { color: var(--accent); font-size: 22px; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; }
+        #weapon-name { color: var(--accent); font-size: 22px; font-weight: 700; font-family: 'Orbitron', monospace; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 2px; }
         #ammo-count { font-size: 28px; font-weight: bold; color: white; }
 
         #minimap-wrapper {
@@ -83,41 +87,44 @@
 
         .title {
             font-size: 80px; color: var(--accent); margin-bottom: 20px;
-            text-shadow: 0 0 30px rgba(59, 130, 246, 0.8), 0 5px 0 #1e3a8a;
-            font-weight: 900; letter-spacing: 2px; text-align: center;
+            text-shadow: 0 0 40px rgba(0,240,255,0.8), 0 0 80px rgba(0,240,255,0.3);
+            font-weight: 900; letter-spacing: 4px; text-align: center;
+            font-family: 'Orbitron', monospace;
         }
 
-        .subtitle { font-size: 24px; color: var(--health); margin-bottom: 50px; font-weight: bold; letter-spacing: 5px; }
+        .subtitle { font-size: 24px; color: var(--accent2); margin-bottom: 50px; font-weight: bold; letter-spacing: 8px; font-family: 'Orbitron', monospace; text-shadow: 0 0 20px rgba(255,0,170,0.5); }
 
         .btn {
-            background: var(--accent); color: white; border: none;
-            padding: 20px 60px; font-size: 28px; font-weight: bold;
-            cursor: pointer; margin: 15px; border-radius: 8px;
-            transition: all 0.2s; box-shadow: 0 6px 0 #1d4ed8;
-            text-transform: uppercase;
+            background: linear-gradient(135deg, #00ccff, #0066ff); color: white; border: none;
+            padding: 20px 60px; font-size: 24px; font-weight: 700;
+            cursor: pointer; margin: 15px; border-radius: 12px;
+            transition: all 0.2s; box-shadow: 0 4px 20px rgba(0,100,255,0.4);
+            text-transform: uppercase; font-family: 'Orbitron', monospace; letter-spacing: 2px;
         }
-        .btn:hover { transform: translateY(-2px); filter: brightness(1.2); box-shadow: 0 8px 0 #1d4ed8; }
-        .btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #1d4ed8; }
-        .btn-red { background: var(--health); box-shadow: 0 6px 0 #b91c1c; }
-        .btn-red:hover { box-shadow: 0 8px 0 #b91c1c; }
-        .btn-red:active { box-shadow: 0 2px 0 #b91c1c; }
+        .btn:hover { transform: translateY(-3px) scale(1.03); filter: brightness(1.2); box-shadow: 0 8px 30px rgba(0,100,255,0.6); }
+        .btn:active { transform: translateY(2px); box-shadow: 0 2px 10px rgba(0,100,255,0.3); }
+        .btn-red { background: linear-gradient(135deg, #ff2255, #cc0033); box-shadow: 0 4px 20px rgba(255,0,50,0.4); }
+        .btn-red:hover { box-shadow: 0 8px 30px rgba(255,0,50,0.6); }
+        .btn-red:active { box-shadow: 0 2px 10px rgba(255,0,50,0.3); }
 
         /* Tienda */
         #shop-container {
-            display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; max-width: 900px; margin-bottom: 30px;
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; max-width: 1000px; margin-bottom: 30px;
         }
         .shop-item {
-            background: #1e293b; border: 2px solid #475569; padding: 20px;
-            border-radius: 10px; text-align: center; cursor: pointer; transition: 0.2s;
+            background: rgba(15,15,40,0.9); border: 1px solid rgba(0,240,255,0.2); padding: 20px;
+            border-radius: 14px; text-align: center; cursor: pointer; transition: 0.3s;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
         }
-        .shop-item:hover { border-color: var(--gold); transform: scale(1.05); }
-        .shop-item h3 { color: var(--accent); margin-top: 0; }
-        .shop-item p { font-size: 14px; color: #94a3b8; height: 40px; }
+        .shop-item:hover { border-color: var(--gold); transform: scale(1.05); box-shadow: 0 0 25px rgba(255,204,0,0.3); }
+        .shop-item h3 { color: var(--accent); margin-top: 0; font-family: 'Orbitron', monospace; font-size: 16px; }
+        .shop-item p { font-size: 14px; color: #8888cc; height: 40px; }
         .shop-price { color: var(--gold); font-weight: bold; font-size: 20px; margin-top: 15px; }
-        .shop-btn { background: var(--gold); color: #000; border: none; padding: 10px 20px; font-weight: bold; border-radius: 5px; cursor: pointer; width: 100%; margin-top: 10px;}
+        .shop-btn { background: linear-gradient(135deg, #ffcc00, #ff8800); color: #000; border: none; padding: 10px 20px; font-weight: bold; border-radius: 8px; cursor: pointer; width: 100%; margin-top: 10px; font-family: 'Orbitron', monospace; transition: 0.2s; }
+        .shop-btn:hover { transform: scale(1.05); box-shadow: 0 0 15px rgba(255,204,0,0.5); }
         
-        .controls-info { margin-top: 40px; text-align: center; color: #94a3b8; font-size: 18px; line-height: 1.8; background: rgba(0,0,0,0.5); padding: 20px; border-radius: 10px;}
-        .key { background: #334155; padding: 4px 10px; border-radius: 4px; color: white; border-bottom: 2px solid #0f172a; }
+        .controls-info { margin-top: 40px; text-align: center; color: #8888cc; font-size: 16px; line-height: 2; background: rgba(0,0,0,0.6); padding: 20px 30px; border-radius: 14px; border: 1px solid rgba(0,240,255,0.15); }
+        .key { background: rgba(0,240,255,0.15); padding: 4px 12px; border-radius: 6px; color: #00f0ff; border-bottom: 2px solid rgba(0,100,150,0.5); font-family: 'Orbitron', monospace; font-size: 13px; }
 
         #interaction-prompt {
             position: absolute; top: 60%; left: 50%; transform: translate(-50%, -50%);
@@ -274,41 +281,68 @@
 // CONFIGURACIÓN GLOBAL Y CONSTANTES
 // ==========================================
 const C = {
-    TILE: 80,             // Tamaño base del grid
-    PLAYER_SIZE: 32,      // Hitbox pequeña para esquivar balas
-    SPEED: 1,
-    DASH_SPEED: 20.0,
+    TILE: 80,
+    PLAYER_SIZE: 36,
+    SPEED: 1.2,
+    DASH_SPEED: 22.0,
     DASH_TIME: 15,
-    DASH_CD: 45,
+    DASH_CD: 40,
     FRICTION: 0.85,
-    BASE_HP: 100,
-    BASE_SHIELD: 50,
-    BASE_ENERGY: 200,
-    SHIELD_REGEN_RATE: 0.05,
-    SHIELD_REGEN_DELAY: 180, // Frames
+    BASE_HP: 250,
+    BASE_SHIELD: 100,
+    BASE_ENERGY: 300,
+    SHIELD_REGEN_RATE: 0.08,
+    SHIELD_REGEN_DELAY: 150,
     COLORS: {
-        bg: '#020617', wall: '#1e293b', floor: '#0f172a',
-        player: '#3b82f6', shield: '#0ea5e9', enemy: '#ef4444', elite: '#b91c1c',
-        boss: '#7f1d1d', bulletP: '#fbbf24', bulletE: '#f43f5e',
-        health: '#ef4444', energy: '#10b981', gold: '#eab308'
+        bg: '#0a0a1a', wall: '#1a1a3a', floor: '#0d0d25',
+        player: '#00ccff', shield: '#00aaff', enemy: '#ff3355', elite: '#ff0066',
+        boss: '#aa00ff', bulletP: '#00ffcc', bulletE: '#ff2266',
+        health: '#ff2255', energy: '#00ff88', gold: '#ffcc00'
     }
 };
 
 const WEAPONS = {
-    PISTOL: { name: 'Pistola', type: 'single', dmg: 10, speed: 18, rate: 20, cost: 0, spread: 0.05, range: 60, color: '#f8fafc', auto: false },
-    SMG: { name: 'Subfusil', type: 'single', dmg: 6, speed: 20, rate: 5, cost: 1, spread: 0.2, range: 45, color: '#fcd34d', auto: true },
-    SHOTGUN: { name: 'Escopeta', type: 'spread', dmg: 8, speed: 16, rate: 45, cost: 5, spread: 0.35, count: 5, range: 35, color: '#cbd5e1', auto: false },
-    SNIPER: { name: 'Francotirador', type: 'pierce', dmg: 45, speed: 35, rate: 60, cost: 8, spread: 0, range: 100, color: '#fbbf24', auto: false, pierce: true },
-    ROCKET: { name: 'Lanzacohetes', type: 'explosive', dmg: 30, speed: 12, rate: 70, cost: 12, spread: 0, range: 70, color: '#ef4444', auto: false, explodeRadius: 150 },
-    LASER: { name: 'Láser', type: 'beam', dmg: 2, speed: 0, rate: 1, cost: 0.5, spread: 0, range: 800, color: '#0ea5e9', auto: true }
+    // --- COMUNES ---
+    PISTOL: { name: 'Pistola', type: 'single', dmg: 18, speed: 20, rate: 16, cost: 0, spread: 0.04, range: 65, color: '#aabbcc', auto: false, rarity: 'common' },
+    SMG: { name: 'Subfusil', type: 'single', dmg: 12, speed: 22, rate: 4, cost: 1, spread: 0.18, range: 50, color: '#ffd700', auto: true, rarity: 'common' },
+    SHOTGUN: { name: 'Escopeta', type: 'spread', dmg: 15, speed: 18, rate: 38, cost: 4, spread: 0.3, count: 6, range: 38, color: '#dddddd', auto: false, rarity: 'common' },
+    // --- RARAS ---
+    SNIPER: { name: 'Francotirador', type: 'pierce', dmg: 80, speed: 40, rate: 55, cost: 6, spread: 0, range: 120, color: '#ffaa00', auto: false, pierce: true, rarity: 'rare' },
+    ROCKET: { name: 'Lanzacohetes', type: 'explosive', dmg: 55, speed: 14, rate: 60, cost: 10, spread: 0, range: 75, color: '#ff4400', auto: false, explodeRadius: 180, rarity: 'rare' },
+    LASER: { name: 'Láser', type: 'beam', dmg: 5, speed: 0, rate: 1, cost: 0.3, spread: 0, range: 900, color: '#00ccff', auto: true, rarity: 'rare' },
+    // --- ÉPICAS ---
+    PLASMA: { name: 'Plasma', type: 'explosive', dmg: 70, speed: 16, rate: 35, cost: 8, spread: 0.1, range: 80, color: '#aa44ff', auto: true, explodeRadius: 120, rarity: 'epic' },
+    RAILGUN: { name: 'Railgun', type: 'pierce', dmg: 150, speed: 60, rate: 80, cost: 15, spread: 0, range: 200, color: '#00ffcc', auto: false, pierce: true, rarity: 'epic' },
+    MINIGUN: { name: 'Minigun', type: 'single', dmg: 8, speed: 25, rate: 2, cost: 0.5, spread: 0.25, range: 55, color: '#ff8800', auto: true, rarity: 'epic' },
+    // --- LEGENDARIAS ---
+    VOID_CANNON: { name: 'Cañón del Vacío', type: 'explosive', dmg: 200, speed: 10, rate: 90, cost: 20, spread: 0, range: 90, color: '#ff00aa', auto: false, explodeRadius: 250, rarity: 'legendary' },
+    THUNDER: { name: 'Trueno', type: 'spread', dmg: 35, speed: 30, rate: 25, cost: 6, spread: 0.5, count: 8, range: 70, color: '#ffff00', auto: true, rarity: 'legendary' },
+    SOUL_REAPER: { name: 'Segador de Almas', type: 'pierce', dmg: 120, speed: 22, rate: 18, cost: 3, spread: 0.08, range: 100, color: '#ff0044', auto: true, pierce: true, rarity: 'legendary' }
+};
+
+// Colores por rareza
+const RARITY_COLORS = {
+    common: '#aabbcc',
+    rare: '#4488ff',
+    epic: '#aa44ff',
+    legendary: '#ff6600'
+};
+const RARITY_NAMES = {
+    common: 'Común',
+    rare: 'Rara',
+    epic: 'Épica',
+    legendary: 'Legendaria'
 };
 
 const UPGRADES = [
-    { id: 'hp', name: 'Vida Máxima', desc: '+25 HP Máximo', basePrice: 30, apply: p => { p.maxHp += 25; p.hp += 25; } },
-    { id: 'shield', name: 'Escudo Máximo', desc: '+15 Escudo Máximo', basePrice: 40, apply: p => { p.maxShield += 15; p.shield += 15; } },
-    { id: 'energy', name: 'Energía Máxima', desc: '+50 Energía Máxima', basePrice: 20, apply: p => { p.maxEnergy += 50; p.energy += 50; } },
-    { id: 'speed', name: 'Botas Ligeras', desc: '+10% Velocidad Mov.', basePrice: 50, apply: p => { p.speedMult += 0.1; } },
-    { id: 'heal', name: 'Curación Total', desc: 'Restaura HP y Energía al 100%', basePrice: 25, apply: p => { p.hp = p.maxHp; p.energy = p.maxEnergy; } }
+    { id: 'hp', name: '❤️ Corazón de Titán', desc: '+50 HP Máximo', basePrice: 30, apply: p => { p.maxHp += 50; p.hp += 50; } },
+    { id: 'shield', name: '🛡️ Escudo Cuántico', desc: '+30 Escudo Máximo', basePrice: 40, apply: p => { p.maxShield += 30; p.shield += 30; } },
+    { id: 'energy', name: '⚡ Reactor de Fusión', desc: '+80 Energía Máxima', basePrice: 20, apply: p => { p.maxEnergy += 80; p.energy += 80; } },
+    { id: 'speed', name: '💨 Botas Gravitatorias', desc: '+15% Velocidad Mov.', basePrice: 50, apply: p => { p.speedMult += 0.15; } },
+    { id: 'heal', name: '💚 Nanobots Médicos', desc: 'Cura todo HP + Escudo', basePrice: 25, apply: p => { p.hp = p.maxHp; p.shield = p.maxShield; p.energy = p.maxEnergy; } },
+    { id: 'dmg', name: '🔥 Amplificador', desc: '+20% Daño de todas las armas', basePrice: 60, apply: p => { p.dmgMult = (p.dmgMult || 1.0) + 0.2; } },
+    { id: 'regen', name: '♻️ Regeneración', desc: 'Regen HP pasivo (+0.1/frame)', basePrice: 45, apply: p => { p.hpRegen = (p.hpRegen || 0) + 0.1; } },
+    { id: 'dash', name: '🌀 Dash Superior', desc: '-20% CD de Dash', basePrice: 55, apply: p => { p.dashCdMult = (p.dashCdMult || 1.0) - 0.2; } }
 ];
 
 // ==========================================
@@ -441,13 +475,20 @@ const AudioSys = {
         noise.connect(filter); filter.connect(gain); gain.connect(game.audioCtx.destination);
         noise.start();
     },
-    shoot: () => AudioSys.playTone(400, 'square', 0.1, 0.05, 0.5),
-    hit: () => AudioSys.playTone(150, 'sawtooth', 0.1, 0.1, 0.5),
-    enemyHit: () => AudioSys.playTone(300, 'square', 0.1, 0.05, 1.5),
-    dash: () => AudioSys.playTone(200, 'sine', 0.2, 0.1, 0.5),
-    explosion: () => AudioSys.playNoise(0.4, 0.4),
-    coin: () => AudioSys.playTone(1200, 'sine', 0.1, 0.1, 2.0),
-    powerup: () => { AudioSys.playTone(400, 'sine', 0.1, 0.1, 1.5); setTimeout(()=>AudioSys.playTone(600, 'sine', 0.2, 0.1, 1.5), 100); }
+    shoot: () => { AudioSys.playTone(500, 'square', 0.08, 0.06, 0.4); AudioSys.playTone(800, 'sawtooth', 0.05, 0.03, 0.3); },
+    shootHeavy: () => { AudioSys.playTone(200, 'sawtooth', 0.15, 0.1, 0.3); AudioSys.playNoise(0.1, 0.15); },
+    shootLaser: () => AudioSys.playTone(1200, 'sine', 0.15, 0.06, 0.7),
+    shootPlasma: () => { AudioSys.playTone(300, 'sine', 0.2, 0.08, 2.0); AudioSys.playTone(600, 'square', 0.1, 0.04, 0.5); },
+    shootRail: () => { AudioSys.playTone(100, 'sawtooth', 0.3, 0.12, 3.0); AudioSys.playNoise(0.15, 0.2); },
+    shootThunder: () => { AudioSys.playNoise(0.1, 0.3); AudioSys.playTone(80, 'square', 0.15, 0.1, 4.0); },
+    hit: () => AudioSys.playTone(150, 'sawtooth', 0.1, 0.08, 0.5),
+    enemyHit: () => { AudioSys.playTone(350, 'square', 0.08, 0.05, 1.5); AudioSys.playTone(200, 'sawtooth', 0.05, 0.03, 0.5); },
+    dash: () => { AudioSys.playTone(250, 'sine', 0.15, 0.08, 0.3); AudioSys.playTone(500, 'sine', 0.1, 0.05, 2.0); },
+    explosion: () => { AudioSys.playNoise(0.5, 0.5); AudioSys.playTone(80, 'sawtooth', 0.3, 0.15, 0.2); },
+    coin: () => { AudioSys.playTone(1200, 'sine', 0.08, 0.08, 2.0); AudioSys.playTone(1800, 'sine', 0.08, 0.06, 1.5); },
+    powerup: () => { AudioSys.playTone(400, 'sine', 0.1, 0.1, 1.5); setTimeout(()=>AudioSys.playTone(600, 'sine', 0.15, 0.08, 2.0), 80); setTimeout(()=>AudioSys.playTone(900, 'sine', 0.2, 0.06, 1.5), 160); },
+    levelUp: () => { AudioSys.playTone(523, 'sine', 0.15, 0.1, 1.0); setTimeout(()=>AudioSys.playTone(659, 'sine', 0.15, 0.1, 1.0), 100); setTimeout(()=>AudioSys.playTone(784, 'sine', 0.3, 0.1, 1.0), 200); },
+    bossAlert: () => { AudioSys.playTone(100, 'square', 0.3, 0.15, 0.5); setTimeout(()=>AudioSys.playTone(100, 'square', 0.3, 0.15, 0.5), 400); setTimeout(()=>AudioSys.playTone(150, 'sawtooth', 0.5, 0.2, 0.3), 800); }
 };
 
 // ==========================================
@@ -637,6 +678,9 @@ class Player extends Entity {
         this.maxEnergy = C.BASE_ENERGY; this.energy = this.maxEnergy;
         
         this.speedMult = 1.0;
+        this.dmgMult = 1.0;
+        this.hpRegen = 0;
+        this.dashCdMult = 1.0;
         this.weapons = [WEAPONS.PISTOL];
         this.currentWeaponIdx = 0;
         
@@ -666,7 +710,7 @@ class Player extends Entity {
             // Lógica de Dash
             if ((game.keys[' '] || game.keys['rightclick']) && this.dashCooldown === 0 && (moveX || moveY)) {
                 this.dashTimer = C.DASH_TIME;
-                this.dashCooldown = C.DASH_CD;
+                this.dashCooldown = Math.floor(C.DASH_CD * (this.dashCdMult || 1.0));
                 this.vx = moveX * C.DASH_SPEED;
                 this.vy = moveY * C.DASH_SPEED;
                 AudioSys.dash();
@@ -684,10 +728,11 @@ class Player extends Entity {
         if (game.frame - this.lastHitFrame > C.SHIELD_REGEN_DELAY && this.shield < this.maxShield) {
             this.shield = Math.min(this.maxShield, this.shield + C.SHIELD_REGEN_RATE);
         }
-
-        super.update();
-
-        // Apuntar e Interacción
+    
+    // Regeneración de HP pasiva (upgrade)
+    if (this.hpRegen > 0 && this.hp < this.maxHp) {
+        this.hp = Math.min(this.maxHp, this.hp + this.hpRegen);
+    }
         this.angle = MathUtils.angle(this.x + this.w/2, this.y + this.h/2, game.mouse.worldX, game.mouse.worldY);
         
         // Disparo
@@ -723,15 +768,25 @@ class Player extends Entity {
 
         this.energy -= w.cost;
         this.lastShotFrame = game.frame;
-        game.camera.shake = w.dmg * 0.2;
-        AudioSys.shoot();
+        game.camera.shake = w.dmg * 0.15;
+        
+        // Crear config modificada con dmgMult
+        let shotCfg = Object.assign({}, w);
+        shotCfg.dmg = Math.floor(w.dmg * (this.dmgMult || 1.0));
+        
+        // Sonido según tipo de arma
+        if (w.type === 'beam') AudioSys.shootLaser();
+        else if (w.type === 'explosive') AudioSys.shootHeavy();
+        else if (w.rarity === 'epic') AudioSys.shootPlasma();
+        else if (w.rarity === 'legendary') AudioSys.shootRail();
+        else AudioSys.shoot();
 
         let cx = this.x + this.w/2, cy = this.y + this.h/2;
         
         if (w.type === 'spread') {
             for(let i=0; i<w.count; i++) {
                 let ang = this.angle + MathUtils.rand(-w.spread, w.spread);
-                bullets.push(new Bullet(cx, cy, ang, w, true));
+                bullets.push(new Bullet(cx, cy, ang, shotCfg, true));
                 // Sincronizar disparo
                 if (isMultiplayer && socket) {
                     socket.emit('player-shoot', {
@@ -753,13 +808,13 @@ class Player extends Entity {
             EffectSys.createLaser(cx, cy, endX, endY, w.color);
             entities.forEach(e => {
                 if (MathUtils.lineIntersectRect(cx, cy, endX, endY, e.x, e.y, e.w, e.h)) {
-                    e.takeDamage(w.dmg);
+                    e.takeDamage(shotCfg.dmg);
                     EffectSys.spawnParticles(e.x+e.w/2, e.y+e.h/2, w.color, 3);
                 }
             });
         } else {
             let ang = this.angle + MathUtils.rand(-w.spread, w.spread);
-            bullets.push(new Bullet(cx, cy, ang, w, true));
+            bullets.push(new Bullet(cx, cy, ang, shotCfg, true));
             // Sincronizar disparo
             if (isMultiplayer && socket) {
                 socket.emit('player-shoot', {
@@ -880,32 +935,70 @@ class Player extends Entity {
         ctx.save();
         ctx.translate(this.x + this.w/2 - game.camera.x, this.y + this.h/2 - game.camera.y);
         
-        // Escudo visual
+        // Aura de energía pulsante
+        let auraPulse = 0.3 + Math.sin(game.frame * 0.08) * 0.15;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.w * 1.3, 0, Math.PI*2);
+        ctx.fillStyle = `rgba(0, 204, 255, ${auraPulse * 0.15})`;
+        ctx.fill();
+        
+        // Escudo visual hexagonal
         if (this.shield > 0) {
+            let shieldAlpha = 0.15 + (this.shield/this.maxShield) * 0.4;
             ctx.beginPath();
-            ctx.arc(0, 0, this.w, 0, Math.PI*2);
-            ctx.strokeStyle = `rgba(14, 165, 233, ${0.2 + (this.shield/this.maxShield)*0.5})`;
-            ctx.lineWidth = 3;
+            for (let i = 0; i < 6; i++) {
+                let a = (i / 6) * Math.PI * 2 - Math.PI/2;
+                let r = this.w * 1.1;
+                if (i === 0) ctx.moveTo(Math.cos(a)*r, Math.sin(a)*r);
+                else ctx.lineTo(Math.cos(a)*r, Math.sin(a)*r);
+            }
+            ctx.closePath();
+            ctx.strokeStyle = `rgba(0, 170, 255, ${shieldAlpha})`;
+            ctx.lineWidth = 2;
+            ctx.shadowColor = '#00aaff'; ctx.shadowBlur = 15;
             ctx.stroke();
+            ctx.shadowBlur = 0;
         }
 
         ctx.rotate(this.angle);
         
-        // Cuerpo
-        ctx.fillStyle = this.color;
-        ctx.shadowColor = this.color;
-        ctx.shadowBlur = 10;
-        ctx.fillRect(-this.w/2, -this.h/2, this.w, this.h);
+        // Cuerpo con gradiente
+        let bodyGrad = ctx.createLinearGradient(-this.w/2, -this.h/2, this.w/2, this.h/2);
+        bodyGrad.addColorStop(0, '#00aaff');
+        bodyGrad.addColorStop(1, '#0066cc');
+        ctx.fillStyle = bodyGrad;
+        ctx.shadowColor = '#00ccff'; ctx.shadowBlur = 12;
+        
+        // Forma redondeada
+        let r = 6;
+        ctx.beginPath();
+        ctx.roundRect(-this.w/2, -this.h/2, this.w, this.h, r);
+        ctx.fill();
         ctx.shadowBlur = 0;
         
-        // Ojos
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(this.w/2 - 8, -10, 6, 6);
-        ctx.fillRect(this.w/2 - 8, 4, 6, 6);
+        // Líneas de detalle
+        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(-this.w/4, -this.h/2); ctx.lineTo(-this.w/4, this.h/2);
+        ctx.moveTo(this.w/4, -this.h/2); ctx.lineTo(this.w/4, this.h/2);
+        ctx.stroke();
         
-        // Arma equipada
-        ctx.fillStyle = this.weapon.color;
-        ctx.fillRect(this.w/2, -4, 18, 8);
+        // Visor/ojos
+        ctx.fillStyle = '#fff';
+        ctx.shadowColor = '#00ffcc'; ctx.shadowBlur = 8;
+        ctx.fillRect(this.w/2 - 8, -8, 5, 5);
+        ctx.fillRect(this.w/2 - 8, 3, 5, 5);
+        ctx.shadowBlur = 0;
+        
+        // Arma equipada con detalle
+        let wColor = this.weapon.color;
+        ctx.fillStyle = wColor;
+        ctx.shadowColor = wColor; ctx.shadowBlur = 8;
+        ctx.fillRect(this.w/2, -5, 20, 10);
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.fillRect(this.w/2 + 2, -3, 16, 3);
+        ctx.shadowBlur = 0;
         
         ctx.restore();
     }
@@ -1046,25 +1139,90 @@ class Enemy extends Entity {
         if (this.tier === 'boss') {
             // Generar Portal
             map.portal = { x: this.x + this.w/2, y: this.y + this.h/2, radius: 40 };
-            // Boss drop arma rara
-            items.push(new Item(this.x, this.y+50, 'weapon', null, WEAPONS.ROCKET));
+            // Boss drop arma legendaria aleatoria
+            let legendaries = Object.values(WEAPONS).filter(w => w.rarity === 'legendary');
+            let drop = legendaries[Math.floor(Math.random() * legendaries.length)];
+            items.push(new Item(this.x, this.y+50, 'weapon', null, drop));
+            AudioSys.bossAlert();
         } else if (entities.length <= 1) { // Último enemigo vivo (si no hay jefe)
             map.portal = { x: this.x + this.w/2, y: this.y + this.h/2, radius: 40 };
         }
     }
 
     draw() {
-        let cx = this.x + this.w/2 - game.camera.x;
-        let cy = this.y + this.h/2 - game.camera.y;
+        let sx = this.x - game.camera.x;
+        let sy = this.y - game.camera.y;
+        let cx = sx + this.w/2;
+        let cy = sy + this.h/2;
         
-        ctx.fillStyle = this.color;
-        ctx.fillRect(this.x - game.camera.x, this.y - game.camera.y, this.w, this.h);
+        // Aura por tipo
+        if (this.tier === 'boss') {
+            ctx.beginPath(); ctx.arc(cx, cy, this.w, 0, Math.PI*2);
+            ctx.fillStyle = `rgba(170, 0, 255, ${0.1 + Math.sin(game.frame*0.05)*0.05})`;
+            ctx.fill();
+        }
         
-        // Barra de vida
-        ctx.fillStyle = '#000';
-        ctx.fillRect(this.x - game.camera.x, this.y - game.camera.y - 10, this.w, 5);
-        ctx.fillStyle = '#ef4444';
-        ctx.fillRect(this.x - game.camera.x, this.y - game.camera.y - 10, (this.hp/this.maxHp)*this.w, 5);
+        // Cuerpo con gradiente
+        ctx.save();
+        let grad;
+        if (this.tier === 'boss') {
+            grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, this.w);
+            grad.addColorStop(0, '#cc00ff'); grad.addColorStop(1, '#5500aa');
+        } else if (this.tier === 'tank') {
+            grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, this.w);
+            grad.addColorStop(0, '#ff3366'); grad.addColorStop(1, '#990022');
+        } else if (this.tier === 'fast') {
+            grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, this.w);
+            grad.addColorStop(0, '#ff8800'); grad.addColorStop(1, '#cc4400');
+        } else if (this.tier === 'shooter') {
+            grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, this.w);
+            grad.addColorStop(0, '#ff4466'); grad.addColorStop(1, '#aa0033');
+        } else {
+            grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, this.w);
+            grad.addColorStop(0, '#ff3355'); grad.addColorStop(1, '#aa1133');
+        }
+        ctx.fillStyle = grad;
+        ctx.shadowColor = this.color; ctx.shadowBlur = 8;
+        
+        if (this.tier === 'boss') {
+            // Boss con forma octogonal
+            ctx.beginPath();
+            for (let i = 0; i < 8; i++) {
+                let a = (i/8) * Math.PI*2 + game.frame*0.02;
+                let r = this.w/2;
+                if (i === 0) ctx.moveTo(cx + Math.cos(a)*r, cy + Math.sin(a)*r);
+                else ctx.lineTo(cx + Math.cos(a)*r, cy + Math.sin(a)*r);
+            }
+            ctx.closePath(); ctx.fill();
+        } else {
+            ctx.beginPath();
+            ctx.roundRect(sx, sy, this.w, this.h, 4);
+            ctx.fill();
+        }
+        ctx.shadowBlur = 0;
+        
+        // Ojos rojos brillantes
+        ctx.fillStyle = '#fff';
+        ctx.shadowColor = '#ff0044'; ctx.shadowBlur = 6;
+        let eyeSize = Math.max(3, this.w * 0.08);
+        ctx.fillRect(cx + this.w*0.15, cy - eyeSize*1.5, eyeSize, eyeSize);
+        ctx.fillRect(cx + this.w*0.15, cy + eyeSize*0.5, eyeSize, eyeSize);
+        ctx.shadowBlur = 0;
+        ctx.restore();
+        
+        // Barra de vida mejorada
+        let barW = this.w + 10;
+        let barH = 4;
+        let barX = sx - 5;
+        let barY = sy - 12;
+        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+        ctx.fillRect(barX, barY, barW, barH);
+        let hpPct = this.hp / this.maxHp;
+        let hpColor = hpPct > 0.5 ? '#ff3355' : (hpPct > 0.25 ? '#ff8800' : '#ff0000');
+        ctx.fillStyle = hpColor;
+        ctx.shadowColor = hpColor; ctx.shadowBlur = 4;
+        ctx.fillRect(barX, barY, barW * hpPct, barH);
+        ctx.shadowBlur = 0;
     }
 }
 
@@ -1139,11 +1297,24 @@ class Bullet {
     }
 
     draw() {
+        // Trail
+        ctx.globalAlpha = 0.3;
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.px - game.camera.x, this.py - game.camera.y, this.w * 0.7, 0, Math.PI*2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        
         ctx.fillStyle = this.color;
         ctx.shadowColor = this.color;
-        ctx.shadowBlur = 10;
+        ctx.shadowBlur = 12;
         ctx.beginPath();
         ctx.arc(this.x - game.camera.x, this.y - game.camera.y, this.w, 0, Math.PI*2);
+        ctx.fill();
+        // Núcleo brillante
+        ctx.fillStyle = 'rgba(255,255,255,0.6)';
+        ctx.beginPath();
+        ctx.arc(this.x - game.camera.x, this.y - game.camera.y, this.w * 0.4, 0, Math.PI*2);
         ctx.fill();
         ctx.shadowBlur = 0;
     }
@@ -1163,21 +1334,47 @@ class Item {
         let sx = this.x - game.camera.x;
         let sy = this.y - game.camera.y + this.hoverY;
         
-        ctx.shadowBlur = 15;
+        ctx.shadowBlur = 20;
         if (this.type === 'coin') {
-            ctx.fillStyle = C.COLORS.gold; ctx.shadowColor = C.COLORS.gold;
-            ctx.beginPath(); ctx.arc(sx+10, sy+10, 8, 0, Math.PI*2); ctx.fill();
+            let pulse = 0.8 + Math.sin(game.frame * 0.15) * 0.2;
+            ctx.fillStyle = '#ffcc00'; ctx.shadowColor = '#ffcc00';
+            ctx.beginPath(); ctx.arc(sx+10, sy+10, 9 * pulse, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#fff'; ctx.globalAlpha = 0.5;
+            ctx.beginPath(); ctx.arc(sx+8, sy+8, 3, 0, Math.PI*2); ctx.fill();
+            ctx.globalAlpha = 1;
         } else if (this.type === 'energy') {
-            ctx.fillStyle = C.COLORS.energy; ctx.shadowColor = C.COLORS.energy;
-            ctx.fillRect(sx+5, sy+5, 10, 15);
+            ctx.fillStyle = '#00ff88'; ctx.shadowColor = '#00ff88';
+            // Rayo de energía
+            ctx.beginPath();
+            ctx.moveTo(sx+10, sy); ctx.lineTo(sx+14, sy+8); ctx.lineTo(sx+8, sy+10);
+            ctx.lineTo(sx+12, sy+20); ctx.lineTo(sx+6, sy+10); ctx.lineTo(sx+10, sy+8);
+            ctx.closePath(); ctx.fill();
         } else if (this.type === 'health') {
-            ctx.fillStyle = C.COLORS.health; ctx.shadowColor = C.COLORS.health;
-            ctx.fillRect(sx, sy+6, 20, 8); ctx.fillRect(sx+6, sy, 8, 20);
+            ctx.fillStyle = '#ff2255'; ctx.shadowColor = '#ff2255';
+            ctx.fillRect(sx+2, sy+7, 16, 6);
+            ctx.fillRect(sx+7, sy+2, 6, 16);
+            ctx.fillStyle = 'rgba(255,255,255,0.3)';
+            ctx.fillRect(sx+7, sy+2, 3, 16);
         } else if (this.type === 'weapon') {
+            let rColor = RARITY_COLORS[this.weapon.rarity || 'common'];
+            // Fondo de rareza
+            ctx.fillStyle = rColor; ctx.shadowColor = rColor;
+            ctx.globalAlpha = 0.2;
+            ctx.beginPath(); ctx.arc(sx+12, sy+10, 22, 0, Math.PI*2); ctx.fill();
+            ctx.globalAlpha = 1;
+            // Arma
             ctx.fillStyle = this.weapon.color; ctx.shadowColor = this.weapon.color;
-            ctx.fillRect(sx, sy+5, 25, 10);
-            ctx.fillStyle = '#fff'; ctx.font = '10px Arial';
-            ctx.fillText(this.weapon.name, sx-10, sy-5);
+            ctx.fillRect(sx, sy+5, 28, 10);
+            ctx.fillStyle = 'rgba(255,255,255,0.4)';
+            ctx.fillRect(sx+2, sy+6, 24, 3);
+            // Nombre + rareza
+            ctx.shadowBlur = 0;
+            ctx.font = 'bold 11px Rajdhani'; ctx.fillStyle = rColor;
+            ctx.fillText(this.weapon.name, sx-5, sy-8);
+            ctx.font = '9px Rajdhani'; ctx.fillStyle = rColor;
+            ctx.globalAlpha = 0.7;
+            ctx.fillText(RARITY_NAMES[this.weapon.rarity || 'common'], sx-5, sy-0);
+            ctx.globalAlpha = 1;
         }
         ctx.shadowBlur = 0;
     }
@@ -1403,10 +1600,14 @@ function loadLevel() {
         }
     }
 
-    // Soltar un arma nueva cada pocos niveles
-    if (game.level % 2 === 0 && !isBossLevel) {
-        let weaponsArray = Object.values(WEAPONS);
-        let randomW = weaponsArray[MathUtils.sRandInt(1, weaponsArray.length-1)];
+    // Soltar arma cada nivel (rareza segùn nivel)
+    if (!isBossLevel) {
+        let allWeapons = Object.values(WEAPONS);
+        let pool;
+        if (game.level >= 8) pool = allWeapons.filter(w => w.rarity === 'legendary' || w.rarity === 'epic');
+        else if (game.level >= 4) pool = allWeapons.filter(w => w.rarity === 'rare' || w.rarity === 'epic');
+        else pool = allWeapons.filter(w => w.rarity === 'common' || w.rarity === 'rare');
+        let randomW = pool[MathUtils.sRandInt(0, pool.length-1)];
         let wx = MathUtils.sRand(3, arenaSize - 3) * C.TILE;
         let wy = MathUtils.sRand(3, arenaSize - 3) * C.TILE;
         items.push(new Item(wx, wy, 'weapon', null, randomW));
@@ -1576,22 +1777,56 @@ function draw() {
     ctx.fillStyle = C.COLORS.bg;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // 2. Dibujar Suelos (Culling básico)
-    ctx.fillStyle = C.COLORS.floor;
+    // 2. Dibujar Suelos con textura sutil
     map.floors.forEach(f => {
         if(f.x > game.camera.x - C.TILE && f.x < game.camera.x + canvas.width &&
            f.y > game.camera.y - C.TILE && f.y < game.camera.y + canvas.height) {
-            ctx.fillRect(f.x - game.camera.x, f.y - game.camera.y, f.w, f.h);
+            let fx = f.x - game.camera.x; let fy = f.y - game.camera.y;
+            ctx.fillStyle = C.COLORS.floor;
+            ctx.fillRect(fx, fy, f.w, f.h);
+            // Grid sutil
+            ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(fx, fy, f.w, f.h);
         }
     });
 
-    // 3. Dibujar Portal
+    // 3. Dibujar Portal con efecto mejorado
     if (map.portal) {
-        ctx.fillStyle = '#a855f7';
-        ctx.shadowColor = '#d946ef'; ctx.shadowBlur = 20;
+        let px = map.portal.x - game.camera.x;
+        let py = map.portal.y - game.camera.y;
+        let portalR = map.portal.radius + Math.sin(game.frame*0.1)*5;
+        
+        // Anillos externos
+        for (let ring = 3; ring >= 0; ring--) {
+            ctx.beginPath();
+            ctx.arc(px, py, portalR + ring * 12, 0, Math.PI*2);
+            ctx.fillStyle = `rgba(168, 85, 247, ${0.05 - ring*0.01})`;
+            ctx.fill();
+        }
+        
+        // Núcleo
+        let grad = ctx.createRadialGradient(px, py, 0, px, py, portalR);
+        grad.addColorStop(0, '#ff00ff');
+        grad.addColorStop(0.5, '#aa44ff');
+        grad.addColorStop(1, 'rgba(100,0,200,0)');
+        ctx.fillStyle = grad;
+        ctx.shadowColor = '#dd44ff'; ctx.shadowBlur = 30;
         ctx.beginPath();
-        ctx.arc(map.portal.x - game.camera.x, map.portal.y - game.camera.y, map.portal.radius + Math.sin(game.frame*0.1)*5, 0, Math.PI*2);
+        ctx.arc(px, py, portalR, 0, Math.PI*2);
         ctx.fill();
+        
+        // Partículas rotando
+        for (let i = 0; i < 6; i++) {
+            let a = (i/6) * Math.PI*2 + game.frame * 0.05;
+            let r = portalR * 0.7;
+            ctx.fillStyle = '#fff';
+            ctx.globalAlpha = 0.7;
+            ctx.beginPath();
+            ctx.arc(px + Math.cos(a)*r, py + Math.sin(a)*r, 3, 0, Math.PI*2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1;
         ctx.shadowBlur = 0;
     }
 
@@ -1620,16 +1855,20 @@ function draw() {
     });
     EffectSys.updateAndDraw();
 
-    // 5. Dibujar Muros (con "Top" para dar profundidad 3D falsa)
+    // 5. Dibujar Muros con estilo cyber
     map.walls.forEach(w => {
         if(w.x > game.camera.x - C.TILE && w.x < game.camera.x + canvas.width &&
            w.y > game.camera.y - C.TILE && w.y < game.camera.y + canvas.height) {
             let sx = w.x - game.camera.x; let sy = w.y - game.camera.y;
-            ctx.fillStyle = '#0f172a'; // Side
+            // Lado oscuro (profundidad)
+            ctx.fillStyle = '#080820';
             ctx.fillRect(sx, sy, w.w, w.h);
-            ctx.fillStyle = C.COLORS.wall; // Top
+            // Cara superior
+            ctx.fillStyle = C.COLORS.wall;
             ctx.fillRect(sx, sy - 10, w.w, w.h);
-            ctx.strokeStyle = '#020617'; ctx.lineWidth=2;
+            // Borde luminoso sutil
+            ctx.strokeStyle = 'rgba(0, 200, 255, 0.08)';
+            ctx.lineWidth = 1;
             ctx.strokeRect(sx, sy - 10, w.w, w.h);
         }
     });
@@ -1640,46 +1879,70 @@ function draw() {
 
     // COUNTDOWN OVERLAY
     if (countdownState.active && countdownState.timeLeft > 0) {
-        // Fondo semi-transparente
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        // Fondo con gradiente radial
+        let grd = ctx.createRadialGradient(canvas.width/2, canvas.height/2, 0, canvas.width/2, canvas.height/2, canvas.width*0.6);
+        grd.addColorStop(0, 'rgba(0, 0, 20, 0.3)');
+        grd.addColorStop(1, 'rgba(0, 0, 20, 0.7)');
+        ctx.fillStyle = grd;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        // Número grande pulsante
+        // Anillo decorativo
         let t = countdownState.timeLeft;
-        let pulse = 1 + Math.sin(Date.now() * 0.01) * 0.1;
-        let fontSize = Math.floor(180 * pulse);
+        let pulse = 1 + Math.sin(Date.now() * 0.008) * 0.15;
+        let ringRadius = 120 * pulse;
+        ctx.beginPath();
+        ctx.arc(canvas.width/2, canvas.height/2 - 20, ringRadius, 0, Math.PI*2);
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.3)';
+        ctx.lineWidth = 3;
+        ctx.stroke();
         
-        ctx.font = `bold ${fontSize}px monospace`;
+        // Número grande pulsante
+        let fontSize = Math.floor(160 * pulse);
+        ctx.font = `900 ${fontSize}px Orbitron, monospace`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         
         // Glow effect
-        ctx.shadowColor = '#0ea5e9';
-        ctx.shadowBlur = 40;
-        ctx.fillStyle = '#0ea5e9';
-        ctx.fillText(t, canvas.width/2, canvas.height/2 - 30);
+        ctx.shadowColor = '#00f0ff';
+        ctx.shadowBlur = 60;
+        ctx.fillStyle = '#00f0ff';
+        ctx.fillText(t, canvas.width/2, canvas.height/2 - 20);
         ctx.shadowBlur = 0;
         
-        // Texto "PREPARÁNDOSE..."
-        ctx.font = 'bold 28px monospace';
-        ctx.fillStyle = '#94a3b8';
-        ctx.fillText('⚔️ ELIGE TUS ARMAS (MÁX. 3) ⚔️', canvas.width/2, canvas.height/2 + 80);
+        // Texto de selección
+        ctx.font = '700 26px Orbitron, monospace';
+        ctx.fillStyle = '#00f0ff';
+        ctx.fillText('ELIGE TUS ARMAS', canvas.width/2, canvas.height/2 + 90);
         
         // Instrucción
-        ctx.font = 'bold 20px monospace';
-        ctx.fillStyle = '#64748b';
-        ctx.fillText('Pulsa [E] sobre un arma para recogerla | [Q] cambiar', canvas.width/2, canvas.height/2 + 115);
+        ctx.font = '600 17px Rajdhani, monospace';
+        ctx.fillStyle = 'rgba(136, 136, 204, 0.8)';
+        ctx.fillText('[E] Recoger  |  [Q] Cambiar  |  Máx. 3 armas', canvas.width/2, canvas.height/2 + 125);
         
-        // Armas actuales del jugador
-        ctx.font = 'bold 18px monospace';
-        ctx.fillStyle = '#0ea5e9';
-        let weaponNames = player.weapons.map(w => w.name).join(' | ');
-        ctx.fillText(`Armas: ${weaponNames} (${player.weapons.length}/3)`, canvas.width/2, canvas.height/2 + 150);
+        // Armas actuales del jugador con colores de rareza
+        ctx.font = '700 18px Rajdhani, monospace';
+        let weaponTexts = player.weapons.map(w => {
+            let rColor = RARITY_COLORS[w.rarity || 'common'];
+            return { name: w.name, color: rColor };
+        });
+        let totalWidth = weaponTexts.reduce((sum, wt) => sum + ctx.measureText(wt.name + '  ').width, 0);
+        let startX = canvas.width/2 - totalWidth/2;
+        weaponTexts.forEach(wt => {
+            ctx.fillStyle = wt.color;
+            ctx.textAlign = 'left';
+            ctx.fillText(wt.name, startX, canvas.height/2 + 160);
+            startX += ctx.measureText(wt.name + '  ').width;
+        });
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#555577';
+        ctx.fillText(`(${player.weapons.length}/3)`, canvas.width/2, canvas.height/2 + 185);
         
-        // Nivel actual
-        ctx.font = 'bold 22px monospace';
-        ctx.fillStyle = '#64748b';
-        ctx.fillText(`NIVEL ${game.level}`, canvas.width/2, canvas.height/2 + 185);
+        // Nivel
+        ctx.font = '700 20px Orbitron, monospace';
+        ctx.fillStyle = '#ff00aa';
+        ctx.shadowColor = '#ff00aa'; ctx.shadowBlur = 15;
+        ctx.fillText(`NIVEL ${game.level}`, canvas.width/2, canvas.height/2 + 215);
+        ctx.shadowBlur = 0;
         
         ctx.textAlign = 'start';
         ctx.textBaseline = 'alphabetic';
@@ -1735,6 +1998,7 @@ function updateUI() {
 // ==========================================
 function showShop() {
     game.state = 'SHOP';
+    AudioSys.levelUp();
     document.getElementById('shop-screen').classList.remove('hidden');
     document.getElementById('shop-coins').innerText = game.coins;
     
@@ -1742,8 +2006,8 @@ function showShop() {
     let container = document.getElementById('shop-container');
     container.innerHTML = '';
     
-    // Seleccionar 3 mejoras al azar
-    let available = [...UPGRADES].sort(() => 0.5 - Math.random()).slice(0, 3);
+    // Seleccionar 4 mejoras al azar
+    let available = [...UPGRADES].sort(() => 0.5 - Math.random()).slice(0, 4);
     
     available.forEach(upg => {
         let price = Math.floor(upg.basePrice * Math.pow(1.2, game.level - 1));
