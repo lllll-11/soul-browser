@@ -1720,11 +1720,14 @@ function connectToServer(serverURL = SERVER_URL) {
         });
 
         socket.on('game-started', (data) => {
+            console.warn('🟢 [CLIENTE] game-started recibido DESDE SERVIDOR');
+            console.warn('🟢 [CLIENTE] roomCode:', data.roomCode, 'currentRoom:', currentRoom);
             console.log('🎮 ¡La partida ha iniciado!', data);
             
             // Cancelar reintentos si estaban activos
             if (window.gameStartTimeout) {
                 clearTimeout(window.gameStartTimeout);
+                console.warn('🟢 [CLIENTE] Cancelado fallback');
             }
             
             isInWarmup = false;
@@ -1982,14 +1985,19 @@ function updateLobbyDisplay() {
 
 // Iniciar juego desde el lobby
 function startGameFromLobby() {
+    console.warn('🟡 [LOBBY] Botón presionado - intentando entrar a warmup');
     const totalPlayers = 1 + Object.keys(remotePlayersSockets).length;
+    console.warn('🟡 [LOBBY] Total jugadores:', totalPlayers);
+    
     if (totalPlayers < 2) {
         alert('Necesitas al menos 2 jugadores');
+        console.warn('🟡 [LOBBY] ERROR: Menos de 2 jugadores');
         return;
     }
     
     if (!socket || !currentRoom) {
         alert('Error: No conectado al servidor');
+        console.warn('🟡 [LOBBY] ERROR: No socket o no currentRoom');
         return;
     }
     
@@ -1998,7 +2006,7 @@ function startGameFromLobby() {
     startBtn.disabled = true;
     startBtn.textContent = '⏳ Iniciando...';
     
-    console.warn('🔵 [LOBBY] Emitiendo enter-warmup a servidor:', currentRoom);
+    console.warn('🟡 [LOBBY] Emitiendo enter-warmup a servidor:', currentRoom);
     
     // Notificar al servidor para entrar a warmup
     socket.emit('enter-warmup', {
@@ -2098,8 +2106,8 @@ function updateWarmupPlayersList() {
 
 // Iniciar partida real desde warmup
 function startRealGame() {
-    alert('🔴 WARMUP: Botón presionado - iniciando...');
     console.warn('🔴 [WARMUP] startRealGame() fue llamada');
+    alert('🔴 WARMUP: Botón presionado - iniciando...');
     
     const totalPlayers = 1 + Object.keys(remotePlayersSockets).length;
     console.warn('🔴 Total jugadores:', totalPlayers);
