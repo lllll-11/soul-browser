@@ -157,10 +157,12 @@ io.on('connection', (socket) => {
     // Evento: Entrar a warmup
     socket.on('enter-warmup', (data) => {
         const { roomCode } = data;
+        console.log(`[EVENTO] enter-warmup recibido de ${socket.id} para sala: ${roomCode}`);
         
         if (games[roomCode]) {
             games[roomCode].state = 'WARMUP';
             
+            console.log(`[WARMUP] Emitiendo warmup-started a todos en ${roomCode}`);
             // Notificar a todos en la sala
             io.to(roomCode).emit('warmup-started', {
                 roomCode,
@@ -168,6 +170,8 @@ io.on('connection', (socket) => {
             });
             
             console.log(`[SALA ${roomCode}] ¡Warmup iniciado! ${Object.keys(games[roomCode].players).length} jugadores`);
+        } else {
+            console.log(`[ERROR] Sala ${roomCode} no existe para warmup`);
         }
     });
 

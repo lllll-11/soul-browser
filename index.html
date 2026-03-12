@@ -1708,7 +1708,14 @@ function connectToServer(serverURL = SERVER_URL) {
         });
 
         socket.on('warmup-started', (data) => {
-            console.log('🏋️ ¡Warmup iniciado!');
+            console.log('🏋️ ¡Warmup iniciado! (respuesta del servidor)');
+            
+            // Cancelar fallback si estaba activo
+            if (window.warmupTimeout) {
+                clearTimeout(window.warmupTimeout);
+                console.log('✅ Fallback cancelado - servidor respondió');
+            }
+            
             startWarmup();
         });
 
@@ -1991,10 +1998,19 @@ function startGameFromLobby() {
     startBtn.disabled = true;
     startBtn.textContent = '⏳ Iniciando...';
     
+    console.warn('🔵 [LOBBY] Emitiendo enter-warmup a servidor:', currentRoom);
+    
     // Notificar al servidor para entrar a warmup
     socket.emit('enter-warmup', {
         roomCode: currentRoom
     });
+    
+    // FALLBACK: Si el servidor no responde en 4 segundos, iniciar warmup localmente
+    // (Esto ayuda con la latencia de Render en producción)
+    window.warmupTimeout = setTimeout(() => {
+        console.warn('🟠 [LOBBY] Timeout - iniciando warmup localmente sin esperar servidor');
+        startWarmup();
+    }, 4000);
 }
 
 // Abandonar lobby
