@@ -2082,6 +2082,7 @@ function updateWarmupPlayersList() {
 
 // Iniciar partida real desde warmup
 function startRealGame() {
+    alert('🔴 WARMUP: Botón presionado - iniciando...');
     console.warn('🔴 [WARMUP] startRealGame() fue llamada');
     
     const totalPlayers = 1 + Object.keys(remotePlayersSockets).length;
